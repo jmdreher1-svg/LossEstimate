@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FP 5020 Rev E - Loss Estimate Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--border:#d8dde4;--accent:#0046AD;--al:#2968c8;--ad:#003580;--text:#1a2233;--muted:#5a6a7a;--dim:#8a94a2;--danger:#c03030;--success:#1a7a3a;--warn:#b07a10;--ibg:#f0f2f5;--ib:#c8cfd8;--hbg:#0046AD;--ht:#fff}
+html.dark{--bg:#0c1018;--card:#151c28;--border:#253040;--accent:#4d8de8;--al:#6aa4f0;--ad:#3a72c0;--text:#dce3eb;--muted:#7a8a9a;--dim:#4a5a6a;--danger:#e04545;--success:#4aaa5a;--warn:#d4a040;--ibg:#111822;--ib:#253040;--hbg:#111822;--ht:#dce3eb}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:64px;transition:background .2s,color .2s}
+.hdr{background:var(--hbg);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;justify-content:space-between;align-items:center}
+.hdr .tg{font-size:10px;color:rgba(255,255,255,.7);letter-spacing:2px;text-transform:uppercase;font-weight:600}
+html.dark .hdr .tg{color:var(--al)}
+.hdr h1{font-size:18px;font-weight:700;color:var(--ht);margin-top:2px}
+.hdr .r{display:flex;align-items:center;gap:12px}
+.hdr .r .s1{font-size:10px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px}
+html.dark .hdr .r .s1{color:var(--dim)}
+.tbtn{background:rgba(255,255,255,.15);border:none;border-radius:5px;padding:5px 9px;cursor:pointer;font-size:14px;color:#fff;transition:background .15s}
+html.dark .tbtn{background:var(--border);color:var(--text)}
+.tbtn:hover{background:rgba(255,255,255,.25)}
+.tabs{display:flex;gap:2px;padding:0 24px;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto}
+.tb{background:transparent;color:var(--muted);border:none;border-top:2px solid transparent;border-bottom:1px solid var(--border);padding:10px 14px;cursor:pointer;font-size:11px;font-weight:500;font-family:'DM Sans',sans-serif;border-radius:5px 5px 0 0;transition:all .15s;white-space:nowrap}
+.tb.on{background:var(--bg);color:var(--accent);border-top:2px solid var(--accent);border-bottom:none;font-weight:600}
+.tb:hover:not(.on){color:var(--text)}
+.cnt{padding:20px;max-width:960px;margin:0 auto}
+.cd{background:var(--card);border-radius:8px;padding:16px;border:1px solid var(--border);margin-bottom:14px}
+.ct{color:var(--accent);font-size:14px;font-weight:600;margin-bottom:12px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+@media(max-width:700px){.g2,.g3{grid-template-columns:1fr}}
+.fd{margin-bottom:8px}.fd label{color:var(--muted);font-size:10px;font-weight:600;margin-bottom:3px;display:block;letter-spacing:.5px;text-transform:uppercase}
+.fd input,.fd select{background:var(--ibg);border:1px solid var(--ib);border-radius:5px;padding:7px 10px;color:var(--text);font-size:13px;width:100%;outline:none;font-family:'DM Sans',sans-serif;transition:border-color .2s}
+.fd input:focus,.fd select:focus{border-color:var(--accent)}
+.fd select{cursor:pointer}
+.fd textarea{background:var(--ibg);border:1px solid var(--ib);border-radius:5px;padding:8px 10px;color:var(--text);font-size:12px;width:100%;outline:none;font-family:'DM Sans',sans-serif;resize:vertical;min-height:260px;line-height:1.75}
+.fd textarea:focus{border-color:var(--accent)}
+.tgr{display:flex;gap:16px;margin-top:6px;flex-wrap:wrap}
+.tg{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none}
+.tgt{width:36px;height:19px;border-radius:10px;background:var(--ib);position:relative;transition:background .2s;flex-shrink:0}
+.tgt.on{background:var(--accent)}
+.tgk{width:15px;height:15px;border-radius:8px;background:#fff;position:absolute;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.tgt.on .tgk{left:19px}
+.tg span{color:var(--text);font-size:12px}
+.vc{background:var(--ibg);border-radius:6px;padding:10px;border:1px solid var(--border);text-align:center}
+.vc .vl{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:3px}
+.vc .vv{font-size:16px;font-weight:700;font-family:'DM Mono',monospace;color:var(--accent)}
+.vc .vv.dng{color:var(--danger)}.vc .vv.wrn{color:var(--warn)}.vc .vv.suc{color:var(--success)}
+.vc .vs{color:var(--dim);font-size:9px;margin-top:2px}
+.bdg{padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;letter-spacing:.4px;display:inline-block}
+.bdg-s{background:rgba(26,122,58,.1);color:var(--success)}.bdg-d{background:rgba(192,48,48,.1);color:var(--danger)}.bdg-w{background:rgba(176,122,16,.1);color:var(--warn)}.bdg-m{background:rgba(90,106,122,.1);color:var(--dim)}
+.rbox{background:var(--ibg);border-radius:6px;padding:10px;border:1px solid var(--border);margin-bottom:12px}
+.rbox .rt{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px}
+.rbox .ri{color:var(--text);font-size:12px;padding:2px 0}.rbox .ri .ar{color:var(--accent);margin-right:5px}
+.sep-ok{background:rgba(26,122,58,.06);border:1px solid rgba(26,122,58,.25);color:var(--success);border-radius:6px;padding:8px 10px;font-weight:600;font-size:11px;margin-top:4px}
+.sep-bad{background:rgba(192,48,48,.06);border:1px solid rgba(192,48,48,.25);color:var(--danger);border-radius:6px;padding:8px 10px;font-weight:600;font-size:11px;margin-top:4px}
+.nd{background:var(--ibg);border-radius:6px;padding:12px;border:1px solid var(--border);white-space:pre-wrap;color:var(--text);font-size:12px;line-height:1.75}
+.nav{display:flex;justify-content:space-between;margin-top:14px}
+.bn{padding:8px 20px;border-radius:5px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;border:none;transition:opacity .15s}
+.bn:hover{opacity:.85}
+.bno{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.bnp{background:var(--accent);color:#fff;font-weight:600}
+.bnc{background:var(--ad);color:#fff;font-size:9px;padding:4px 10px;border-radius:3px;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;text-transform:uppercase;letter-spacing:.5px}
+.bnc:hover{background:var(--accent)}
+.ifx{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.note{background:rgba(0,70,173,.04);border:1px solid rgba(0,70,173,.12);border-radius:6px;padding:9px 10px;color:var(--accent);font-size:11px;margin-bottom:10px;line-height:1.5}
+html.dark .note{background:rgba(77,141,232,.06);border-color:rgba(77,141,232,.2)}
+.add-b{background:var(--ibg);color:var(--accent);border:1px dashed var(--accent);border-radius:6px;padding:8px;text-align:center;cursor:pointer;font-size:11px;font-weight:600;margin-top:6px}
+.add-b:hover{background:rgba(0,70,173,.06)}
+.brow{display:grid;gap:6px;align-items:end;margin-bottom:4px}
+.brm{background:var(--danger);color:#fff;border:none;border-radius:5px;padding:7px 8px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;height:33px;align-self:end}
+.brm:hover{opacity:.8}
+/* Sticky Footer */
+.footer{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:2px solid var(--accent);padding:8px 24px;display:flex;justify-content:center;gap:40px;z-index:100;box-shadow:0 -2px 10px rgba(0,0,0,.08)}
+html.dark .footer{box-shadow:0 -2px 10px rgba(0,0,0,.3)}
+.fv{text-align:center}.fv .fl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
+.fv .fn{font-size:16px;font-weight:700;font-family:'DM Mono',monospace}
+.fv .fn.suc{color:var(--success)}.fv .fn.wrn{color:var(--warn)}.fv .fn.dng{color:var(--danger)}
+.pri-radio{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div><div class="tg">FP 5020 Rev E - Fire Protection Practices</div><h1>Loss Estimate Calculator</h1></div>
+  <div class="r">
+    <div><div class="s1">Property Loss Engineering</div></div>
+    <button class="tbtn" onclick="saveState()" title="Save">💾</button>
+    <button class="tbtn" onclick="toggleTheme()" title="Toggle theme" id="themeBtn">🌙</button>
+  </div>
+</div>
+<div class="tabs" id="tabs"></div>
+<div class="cnt" id="cnt"></div>
+<div class="footer" id="footer"></div>
+
+<script>
+function toggleTheme(){document.documentElement.classList.toggle('dark');const d=document.documentElement.classList.contains('dark');localStorage.setItem('fp5020theme',d?'dark':'light');document.getElementById('themeBtn').textContent=d?'☀️':'🌙'}
+if(localStorage.getItem('fp5020theme')==='dark'){document.documentElement.classList.add('dark');document.getElementById('themeBtn').textContent='☀️'}
+function saveState(){localStorage.setItem('fp5020state',JSON.stringify(S));alert('Saved.')}
+function loadState(){try{const s=localStorage.getItem('fp5020state');if(s)Object.assign(S,JSON.parse(s))}catch(e){}}
+
+// DATA
+const APL_SC={A:{l:"A",d:"Non-Sensitive, Light/Ordinary, Adequate",wet:{fire:{a:700,b:.25,e:1,i:1},water:{a:1500,b:.1,e:.25,i:.5},smoke:{a:10000,b:.075,e:.075,i:.15}},dry:{fire:{a:1000,b:.25,e:1,i:1},water:{a:2000,b:.1,e:.25,i:.5},smoke:{a:15000,b:.075,e:.075,i:.15}},bi:"1 - 7 Days"},B:{l:"B",d:"Sensitive, Light/Ordinary, Adequate",wet:{fire:{a:700,b:.5,e:1,i:1},water:{a:1500,b:.25,e:.5,i:1},smoke:{a:10000,b:.125,e:.175,i:1}},dry:{fire:{a:1000,b:.5,e:1,i:1},water:{a:2000,b:.25,e:.5,i:1},smoke:{a:15000,b:.125,e:.175,i:1}},bi:"1 - 3 Weeks"},C:{l:"C",d:"Non-Sensitive, Extra Hazard, Adequate (No FL/CL)",wet:{fire:{a:1200,b:.25,e:1,i:1},water:{a:2500,b:.25,e:.25,i:.5},smoke:{a:20000,b:.075,e:.075,i:.15}},dry:{fire:{a:1500,b:.25,e:1,i:1},water:{a:3500,b:.25,e:.25,i:.5},smoke:{a:30000,b:.075,e:.075,i:.15}},bi:"1 - 7 Days"},D:{l:"D",d:"Sensitive, Extra Hazard, Adequate (No FL/CL)",wet:{fire:{a:1200,b:.5,e:1,i:1},water:{a:2500,b:.4,e:.5,i:1},smoke:{a:20000,b:.125,e:.175,i:1}},dry:{fire:{a:1500,b:.5,e:1,i:1},water:{a:3500,b:.4,e:.5,i:1},smoke:{a:30000,b:.125,e:.175,i:1}},bi:"2 - 4 Weeks"},E:{l:"E",d:"Non-Sensitive, Extra Hazard w/ FL/CL",wet:{fire:{a:"design",b:.25,e:1,i:1},water:{a:"2x",b:.25,e:.25,i:.5},smoke:{a:"comp",b:.075,e:.075,i:.15}},dry:null,bi:"8 - 16 Weeks"},F:{l:"F",d:"Sensitive, Extra Hazard w/ FL/CL",wet:{fire:{a:"design",b:.5,e:1,i:1},water:{a:"2x",b:.25,e:.5,i:1},smoke:{a:"comp",b:.125,e:.175,i:1}},dry:null,bi:"4 - 12 Weeks"},G:{l:"G",d:"Design Area Fire (Deficiency / Storage)",wet:{fire:{a:"design",b:1,e:1,i:1},water:{a:"5x",b:.25,e:.25,i:.5},smoke:{a:"comp",b:.125,e:.125,i:.625}},dry:null,bi:"4 - 12 Weeks"},H:{l:"H",d:"Storage, Non-Sensitive, ESFR",wet:{fire:{a:500,b:.25,e:1,i:1},water:{a:2000,b:.25,e:.25,i:1},smoke:{a:10000,b:.075,e:.075,i:.15}},dry:null,bi:"1 - 7 Days"},I:{l:"I",d:"Storage, Sensitive, ESFR",wet:{fire:{a:500,b:.5,e:1,i:1},water:{a:2000,b:.4,e:.4,i:1},smoke:{a:10000,b:.125,e:.15,i:1}},dry:null,bi:"2 - 4 Weeks"},J:{l:"J",d:"Storage, Non-Sensitive, CMSA",wet:{fire:{a:700,b:.25,e:1,i:1},water:{a:2000,b:.25,e:.25,i:1},smoke:{a:10000,b:.075,e:.075,i:.15}},dry:{fire:{a:1500,b:.25,e:1,i:1},water:{a:4000,b:.25,e:.25,i:1},smoke:{a:25000,b:.075,e:.075,i:.15}},bi:"1 - 7 Days"},K:{l:"K",d:"Storage, Sensitive, CMSA",wet:{fire:{a:700,b:.5,e:1,i:1},water:{a:2000,b:.4,e:.4,i:1},smoke:{a:10000,b:.125,e:.15,i:1}},dry:{fire:{a:1500,b:.5,e:1,i:1},water:{a:4000,b:.4,e:.4,i:1},smoke:{a:25000,b:.125,e:.15,i:1}},bi:"2 - 4 Weeks"}};
+const MFL_T={"Hospital/Medical":{fr:{b:10,e:60,i:100,bi:6},hnc:{b:30,e:80,i:100,bi:9},lnc:{b:30,e:80,i:100,bi:9},comb:{b:100,e:100,i:100,bi:18}},"Office":{fr:{b:40,e:40,i:50,bi:4.5},hnc:{b:50,e:40,i:50,bi:4.5},lnc:{b:60,e:50,i:60,bi:4.5},comb:{b:100,e:100,i:100,bi:7.5}},"Hydroelectric Power":{fr:{b:5,e:20,i:10,bi:12},hnc:{b:5,e:20,i:20,bi:12},lnc:{b:30,e:20,i:20,bi:12},comb:{b:100,e:100,i:100,bi:18}},"Data Center/Telecom":{fr:{b:10,e:30,i:30,bi:3},hnc:{b:10,e:30,i:30,bi:3},lnc:{b:30,e:30,i:30,bi:6},comb:{b:100,e:100,i:100,bi:18}},"Machine Shop/Light Metal":{fr:{b:10,e:20,i:20,bi:3},hnc:{b:10,e:20,i:20,bi:3},lnc:{b:30,e:30,i:30,bi:6},comb:{b:100,e:100,i:100,bi:12}},"Mineral Products":{fr:{b:10,e:20,i:10,bi:6},hnc:{b:10,e:20,i:20,bi:6},lnc:{b:30,e:30,i:30,bi:9},comb:{b:100,e:100,i:75,bi:12}},"Beverage Processing":{fr:{b:40,e:40,i:100,bi:9},hnc:{b:50,e:40,i:100,bi:12},lnc:{b:60,e:50,i:100,bi:12},comb:{b:100,e:100,i:100,bi:18}},"Retail (non Big Box)":{fr:{b:50,e:60,i:100,bi:10.5},hnc:{b:70,e:70,i:100,bi:10.5},lnc:{b:80,e:70,i:100,bi:10.5},comb:{b:100,e:100,i:100,bi:10.5}},"Food Processing":{fr:{b:50,e:50,i:100,bi:10.5},hnc:{b:60,e:60,i:100,bi:12},lnc:{b:70,e:60,i:100,bi:12},comb:{b:100,e:100,i:100,bi:12}},"Electronic/Electrical Mfg":{fr:{b:50,e:60,i:100,bi:9},hnc:{b:70,e:70,i:100,bi:12},lnc:{b:80,e:70,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Metal Smelting/Foundry":{fr:{b:50,e:60,i:40,bi:18},hnc:{b:70,e:70,i:50,bi:18},lnc:{b:80,e:70,i:80,bi:18},comb:{b:100,e:80,i:80,bi:18}},"Big Box Retail":{fr:{b:50,e:60,i:60,bi:7.5},hnc:{b:70,e:80,i:80,bi:10.5},lnc:{b:90,e:80,i:90,bi:10.5},comb:{b:100,e:100,i:100,bi:10.5}},"Box Mfg/Printing":{fr:{b:50,e:70,i:100,bi:10.5},hnc:{b:70,e:80,i:100,bi:10.5},lnc:{b:90,e:80,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Vehicle Manufacturing":{fr:{b:50,e:50,i:50,bi:12},hnc:{b:60,e:60,i:60,bi:15},lnc:{b:70,e:60,i:60,bi:18},comb:{b:100,e:100,i:100,bi:24}},"Brewery/Distillery/Winery":{fr:{b:50,e:60,i:100,bi:12},hnc:{b:70,e:70,i:100,bi:12},lnc:{b:80,e:70,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Wood/Plastic Products":{fr:{b:70,e:90,i:100,bi:18},hnc:{b:80,e:90,i:100,bi:18},lnc:{b:90,e:90,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Cotton Mill/Sugar Mill":{fr:{b:80,e:100,i:100,bi:18},hnc:{b:90,e:100,i:100,bi:18},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Rubber Manufacturing":{fr:{b:70,e:90,i:100,bi:12},hnc:{b:80,e:90,i:100,bi:18},lnc:{b:90,e:90,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Warehousing":{fr:{b:70,e:90,i:90,bi:9},hnc:{b:80,e:90,i:90,bi:12},lnc:{b:100,e:100,i:100,bi:12},comb:{b:100,e:100,i:100,bi:12}},"Warehousing (Refrigerated)":{fr:{b:70,e:90,i:100,bi:12},hnc:{b:80,e:90,i:100,bi:18},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Aircraft Hangar":{fr:{b:90,e:100,i:100,bi:18},hnc:{b:100,e:100,i:100,bi:18},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Pharma/Cosmetics/Drugs":{fr:{b:80,e:100,i:100,bi:24},hnc:{b:90,e:100,i:100,bi:24},lnc:{b:100,e:100,i:100,bi:24},comb:{b:100,e:100,i:100,bi:24}},"Semiconductor Mfg":{fr:{b:20,e:90,i:100,bi:24},hnc:{b:20,e:90,i:100,bi:24},lnc:{b:30,e:90,i:100,bi:24},comb:{b:100,e:100,i:100,bi:24}},"Grain Elevator/Milling":{fr:{b:90,e:100,i:100,bi:18},hnc:{b:100,e:100,i:100,bi:18},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Hotel/Residential/School":{fr:{b:50,e:50,i:70,bi:10.5},hnc:{b:60,e:60,i:70,bi:10.5},lnc:{b:70,e:60,i:80,bi:10.5},comb:{b:100,e:100,i:100,bi:10.5}},"Chemical Processing":{fr:{b:60,e:70,i:100,bi:18},hnc:{b:70,e:80,i:100,bi:18},lnc:{b:80,e:80,i:100,bi:18},comb:{b:100,e:100,i:100,bi:24}}};
+const MFL_SEP={fr:{fr:{l:30,o:40,e:60},nc:{l:40,o:50,e:80},comb:{l:50,o:80,e:100}},nc:{fr:{l:40,o:60,e:90},nc:{l:50,o:80,e:100},comb:{l:80,o:100,e:130}},comb:{fr:{l:80,o:100,e:130},nc:{l:100,o:130,e:150},comb:{l:130,o:150,e:200}}};
+const CL={fr:"Fire Resistive",hnc:"Heavy Noncombustible",lnc:"Light Noncombustible",comb:"Combustible"};
+const SYS_LABELS={sprinkler_riser:"sprinkler riser/control valve",fire_pump:"fire pump",detection:"detection/alarm system",clean_agent:"clean agent system",foam_system:"foam system",deluge:"deluge system",other:"fire protection system"};
+
+// STATE
+const S={
+  tab:0,siteName:"",accountNo:"",surveyDate:"",
+  // Buildings array: each has name, area, construction, occupancy, value (override), separation (for MFL)
+  buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:""}],
+  primaryIdx:0, // which building is the primary fire area
+  // Site-wide
+  hazardClass:"ordinary",isStorage:true,isSensitive:false,
+  sprinklerType:"wet",sprinklerAdequate:"adequate",designPct:"100",
+  hasFL:false,protType:"standard",alarmsOk:true,designArea:"",compArea:"",
+  defHP:"none",defESFR:"none",defOT:"none",defFC:"none",defFE:false,defV:"none",defOE:"none",defOC:"none",
+  // Values
+  totalBldg:"",totalEquip:"",totalInv:"",biYearly:"",biMode:"dollar",annualProd:"",biPct:"",
+  // PML
+  pmlSystem:"sprinkler_riser",fdTime:"prompt",fdType:"fullypaid",pmlArea:"",hasCombConst:false,
+  // MFL
+  fw4hr:false,fwArea:"",
+  // High rise
+  isHighRise:false,stories:"",topFloorBelowFD:true,extSpreadPossible:false,extType:"none",floorToWindow:"",windowHeight:"",
+};
+loadState();
+
+// HELPERS
+function pf(s){return parseFloat(s)||0}
+function fmt(v){if(!v||isNaN(v))return"$0";if(v>=1e9)return"$"+(v/1e9).toFixed(2)+"B";if(v>=1e6)return"$"+(v/1e6).toFixed(2)+"M";if(v>=1e3)return"$"+(v/1e3).toFixed(1)+"K";return"$"+Math.round(v).toLocaleString()}
+function fmtF(v){if(!v||isNaN(v))return"$0";return"$"+Math.round(v).toLocaleString()}
+function fN(v){return v.toLocaleString()}
+function rLE(v){if(v<100000)return Math.round(v/1000)*1000;return Math.round(v/100000)*100000}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
+function pct(v){return(v*100).toFixed(0)+"%"}
+function su(k,v){S[k]=v}
+function set(k,v){S[k]=v;render()}
+function ib(k,el){S[k]=el.value;render()}
+
+// BUILDING HELPERS
+function pb(){return S.buildings[S.primaryIdx]||S.buildings[0]||{area:"",construction:"hnc",occupancy:"Warehousing"}}
+function totalSqft(){return S.buildings.reduce((s,b)=>s+pf(b.area),0)}
+function primaryArea(){return pf(pb().area)}
+function primaryConst(){return pb().construction}
+function primaryOcc(){return pb().occupancy||"Warehousing"}
+function addBldg(){S.buildings.push({name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:""});render()}
+function rmBldg(i){if(S.buildings.length<=1)return;S.buildings.splice(i,1);if(S.primaryIdx>=S.buildings.length)S.primaryIdx=0;render()}
+function setBldg(i,k,v){S.buildings[i][k]=v}
+function setBldgR(i,k,el){S.buildings[i][k]=el.value;render()}
+function setPrimary(i){S.primaryIdx=i;render()}
+
+// Value distribution: total values distributed by sqft proportion, or override per building
+function bldgValue(i){
+  const b=S.buildings[i],ov=pf(b.value);
+  if(ov>0)return ov;
+  const ts=totalSqft(),ba=pf(b.area),tv=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);
+  return ts>0?tv*(ba/ts):0;
+}
+
+function gv(){
+  const a=primaryArea(),tb=pf(S.totalBldg),te=pf(S.totalEquip),ti=pf(S.totalInv);
+  let by=pf(S.biYearly);if(S.biMode==="percent"&&pf(S.annualProd)>0&&pf(S.biPct)>0)by=pf(S.annualProd)*(pf(S.biPct)/100);
+  return{a,tb,te,ti,by,bpsf:a>0?tb/a:0,epsf:a>0?te/a:0,ipsf:a>0?ti/a:0,pd:tb+te+ti};
+}
+
+function getSepReq(origC,expC,haz){
+  const ok=origC==="fr"?"fr":origC==="comb"?"comb":"nc",ek=expC==="fr"?"fr":expC==="comb"?"comb":"nc",hk=haz==="light"?"l":haz==="ordinary"?"o":"e";
+  return MFL_SEP[ek]?.[ok]?.[hk]||100;
+}
+
+// TABLE 1B
+function countBold(){let c=0;if(S.defHP!=="none")c++;if(S.defESFR!=="none")c++;if(S.defOT!=="none")c++;if(S.defFC!=="none")c++;if(S.defFE)c++;if(S.defV!=="none")c++;if(S.defOE!=="none")c++;if(S.defOC!=="none")c++;return c}
+function getT1B(){
+  const c=countBold();if(c===0)return{sc:null,eq:false,rsn:""};if(c>1)return{sc:null,eq:true,rsn:"Multiple bolded deficiency categories identified, so APL = PML per Table 1B"};
+  if(S.defHP==="ge80")return{sc:"G",eq:false,rsn:"Design area/pressure is at least 80% of required, resulting in Scenario G per Table 1B"};
+  if(S.defHP==="lt80")return{sc:null,eq:true,rsn:"Design area/pressure is less than 80% of required, so APL = PML per Table 1B"};
+  if(S.defESFR==="clearance_ok")return{sc:S.isSensitive?"I":"H",eq:false,rsn:`K-14 ESFR clearance is acceptable, resulting in Scenario ${S.isSensitive?"I":"H"} per Table 1B`};
+  if(S.defESFR==="clearance_bad")return{sc:null,eq:true,rsn:"ESFR clearance exceeds limits, so APL = PML per Table 1B"};
+  if(S.defESFR==="over40ft")return{sc:null,eq:true,rsn:"Building height exceeds 40 ft, so APL = PML per Table 1B"};
+  if(S.defOT==="top_gt20")return{sc:null,eq:true,rsn:"Open-top containers on top tier exceed 20% of rack footprint, so APL = PML per Table 1B"};
+  if(S.defOT==="less_adequate")return{sc:"G",eq:false,rsn:"Container density below threshold with adequate water supply, resulting in Scenario G per Table 1B"};
+  if(S.defOT==="less_inadequate")return{sc:null,eq:true,rsn:"Container density below threshold with inadequate water, so APL = PML per Table 1B"};
+  if(S.defFC==="one_dir")return{sc:"G",eq:false,rsn:"Inadequate flue spaces in one direction (CMDA/CMSA), resulting in Scenario G per Table 1B"};
+  if(S.defFC==="both_dir")return{sc:null,eq:true,rsn:"Inadequate flue spaces in both directions, so APL = PML per Table 1B"};
+  if(S.defFE)return{sc:null,eq:true,rsn:"Inadequate flue spaces (ESFR), so APL = PML per Table 1B"};
+  if(S.defV==="noncompliant")return{sc:null,eq:true,rsn:"Smoke/heat vents not per NFPA 13 and 204, so APL = PML per Table 1B"};
+  if(S.defV==="compliant")return{sc:"G",eq:false,rsn:"Smoke/heat vents in compliance with NFPA 13 and 204, resulting in Scenario G per Table 1B"};
+  if(S.defOE==="one")return{sc:S.isSensitive?"D":"C",eq:false,rsn:`1 ESFR head obstructed, resulting in Scenario ${S.isSensitive?"D":"C"} per Table 1B`};
+  if(S.defOE==="up_to_3")return{sc:"G",eq:false,rsn:"2-3 ESFR heads obstructed, resulting in Scenario G per Table 1B"};
+  if(S.defOE==="gt3")return{sc:null,eq:true,rsn:"More than 3 ESFR heads obstructed, so APL = PML per Table 1B"};
+  if(S.defOC==="up_to_3")return{sc:S.isSensitive?"F":"E",eq:false,rsn:`1-3 CMDA heads obstructed, resulting in Scenario ${S.isSensitive?"F":"E"} per Table 1B`};
+  if(S.defOC==="up_to_6")return{sc:"G",eq:false,rsn:"4-6 CMDA heads obstructed, resulting in Scenario G per Table 1B"};
+  if(S.defOC==="gt6")return{sc:null,eq:true,rsn:"More than 6 CMDA heads obstructed, so APL = PML per Table 1B"};
+  return{sc:null,eq:false,rsn:""};
+}
+
+// APL
+function calcAPL(){
+  const v=gv(),pctV=pf(S.designPct),isAdq=S.sprinklerAdequate==="adequate",noSprk=S.sprinklerAdequate==="none",is80=pctV>=80,isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";
+  let sc=null,eq=false,R=[];const hasDef=countBold()>0;
+  if(noSprk){eq=true;R.push("No sprinkler protection, so APL = PML");}
+  else if(S.isStorage){R.push("Storage occupancy (Figure 1A)");if(isAdq&&!hasDef){R.push("Sprinkler system reliable and fully adequate");if(S.hasFL){sc="G";R.push("Significant FL/CL present, Scenario G");}else if(S.isSensitive){sc=S.protType==="esfr"?"I":S.protType==="cmsa"?"K":"D";R.push("Sensitive + "+S.protType.toUpperCase()+", Scenario "+sc);}else{sc=S.protType==="esfr"?"H":S.protType==="cmsa"?"J":"C";R.push("Non-sensitive + "+S.protType.toUpperCase()+", Scenario "+sc);}}else{R.push(isAdq?"Adequate but deficiencies identified":"Not fully adequate");if(S.hasFL){eq=true;R.push("FL/CL with deficient system, APL = PML");}else if(!is80&&!isAdq){eq=true;R.push("Less than 80% of design, APL = PML");}else if(!S.alarmsOk&&!isAdq){eq=true;R.push("Alarms/FD/PEO inadequate, APL = PML");}else if(hasDef){const t=getT1B();R.push(t.rsn);if(t.eq)eq=true;else if(t.sc)sc=t.sc;else sc="G";}else{sc="G";R.push("At least 80% design, Scenario G");}}}
+  else{R.push("Non-storage (Figure "+(S.isSensitive?"1C":"1B")+")");if(isAdq&&!hasDef){R.push("Sprinkler system reliable and fully adequate");if(S.isSensitive){sc=isLO?"B":S.hasFL?"F":"D";}else{sc=isLO?"A":S.hasFL?"E":"C";}R.push("Scenario "+sc);}else{R.push(isAdq?"Adequate but deficiencies":"Not fully adequate");if(!is80&&!isAdq){eq=true;R.push("Less than 80% of design, APL = PML");}else if(S.hasFL){eq=true;R.push("FL/CL present, APL = PML");}else if(!S.alarmsOk&&!isAdq){eq=true;R.push("Alarms/FD/PEO inadequate, APL = PML");}else if(hasDef){const t=getT1B();R.push(t.rsn);if(t.eq)eq=true;else if(t.sc)sc=t.sc;else sc=S.isSensitive?"F":"E";}else{sc=S.isSensitive?"F":"E";R.push("Scenario "+sc);}}}
+  let pB=0,pE=0,pI=0,bi="";
+  if(sc&&APL_SC[sc]&&v.a>0){const s=APL_SC[sc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;bi=s.bi;
+    const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(pf(S.designArea)||1500,v.a);if(x==="2x")return Math.min((pf(S.designArea)||1500)*2,v.a);if(x==="5x")return Math.min((pf(S.designArea)||1500)*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
+    ["fire","water","smoke"].forEach(t=>{const d=sys[t],ar=rA(d.a);pB+=(v.tb/v.a)*d.b*ar;pE+=(v.te/v.a)*d.e*ar;pI+=(v.ti/v.a)*d.i*ar;});}
+  return{sc,eq,R,pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT:rLE(pB+pE+pI),bi};
+}
+
+// MFL - start with total site values, subtract adequately separated buildings
+function calcMFL(){
+  const v=gv(),o=MFL_T[primaryOcc()];if(!o||v.a===0)return{biM:0,pB:0,pE:0,pI:0,pT:0,bV:0,mflA:0,hasFW:false,exclB:[],inclB:[],exclPD:0,sitePD:0};
+  const d=o[primaryConst()]||o.comb;
+  let hasFW=S.fw4hr&&pf(S.fwArea)>0;
+  let mflA=v.a;if(hasFW)mflA=Math.min(pf(S.fwArea),v.a);
+
+  // Start with total site PD
+  const sitePD=v.pd; // tb+te+ti = everything
+
+  // Fire wall only reduces the primary building proportionally
+  let fwReduction=0;
+  if(hasFW){fwReduction=v.pd*(1-mflA/v.a);} // portion of primary behind the wall
+
+  // Check adjacent buildings for separation
+  const exclB=[],inclB=[];
+  S.buildings.forEach((b,i)=>{if(i===S.primaryIdx)return;
+    const req=getSepReq(primaryConst(),b.construction||primaryConst(),S.hazardClass);
+    const act=pf(b.separation);const bv=bldgValue(i);
+    const info={idx:i,name:b.name||("Building "+(i+1)),area:pf(b.area),req,act,value:bv,construction:b.construction};
+    if(act>=req&&act>0)exclB.push(info);else inclB.push(info);
+  });
+
+  // Subtract adequately separated building values
+  let exclPD=0;exclB.forEach(b=>{exclPD+=b.value;});
+
+  const totalMFL=rLE(sitePD-fwReduction-exclPD);
+  const biM=d.bi;
+  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT:Math.max(totalMFL,0),bV:rLE(v.by/12*biM),mflA,hasFW,exclB,inclB};
+}
+
+// PML
+function calcPML(){
+  const v=gv(),mfl=calcMFL(),apl=calcAPL();
+  if(S.fdTime==="delayed"||primaryConst()==="comb"||S.hasCombConst){
+    const rsn=S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":"Combustible construction, so PML = MFL";
+    return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,bP:100,eP:100,iP:100,zones:[],pB:rLE(v.tb),pE:rLE(v.te),pI:rLE(v.ti)};}
+  const o=MFL_T[primaryOcc()];if(!o||v.a===0)return{pB:0,pE:0,pI:0,pT:0,biM:0,eq:false,zones:[]};
+  const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||1500;
+  let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
+  let pB=0,pE=0,pI=0,zones=[];
+  if(apl.sc&&APL_SC[apl.sc]){const s=APL_SC[apl.sc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
+    const aplFA=(x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0})(sys.fire.a);
+    const sf=aplFA>0?pmlFA/aplFA:1;
+    ["fire","water","smoke"].forEach(t=>{const zd=sys[t];const azA=(x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0})(zd.a);
+      const pzA=Math.min(Math.round(azA*sf),v.a);const bD=(v.tb/v.a)*zd.b*pzA,eD=(v.te/v.a)*zd.e*pzA,iD=(v.ti/v.a)*zd.i*pzA;
+      pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:azA,pmlA:pzA,bPct:zd.b,ePct:zd.e,iPct:zd.i,bD:rLE(bD),eD:rLE(eD),iD:rLE(iD)});});}
+  else{const r=v.a>0?pmlFA/v.a:1;pB=v.tb*(d.b/100)*r;pE=v.te*(d.e/100)*r;pI=v.ti*(d.i/100)*r;}
+  let pT=rLE(pB+pE+pI),aplFloor=false;if(pT<apl.pT){aplFloor=true;pT=apl.pT;}
+  return{biM:d.bi,pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT,bV:rLE(v.by/12*d.bi),eq:false,rsn:"",aplFloor,pmlFA,zones,bP:d.b,eP:d.e,iP:d.i};
+}
+
+// High rise helpers
+function hrFF(){if(S.topFloorBelowFD)return 1;if(!S.extSpreadPossible)return 1;return pf(S.stories)>40?3:2}
+function hrSF(){const f=hrFF();return f===1?2:f===2?3:4}
+function hrWF(){const f=hrFF();return f===1?2:f===2?5:6}
+
+// Narrative
+function genN(){
+  const apl=calcAPL(),pml=calcPML(),mfl=calcMFL(),v=gv();
+  const ct=CL[primaryConst()]||"",occ=primaryOcc(),sys=S.sprinklerType==="wet"?"wet pipe":"dry pipe";
+  const sysName=SYS_LABELS[S.pmlSystem]||"fire protection system";
+  const hr=S.isHighRise;
+  const hrN=hr?` This is a ${pf(S.stories)}-story high-rise building with the top occupied floor ${S.topFloorBelowFD?"within":"above"} the effective reach of fire department aerial equipment.`:"";
+
+  // BI helper: returns appropriate BI text based on mode
+  function biText(months){
+    if(S.biMode==="percent"&&pf(S.biPct)>0){
+      return `${pf(S.biPct)}% of annual production for ${months} months`;
+    } else if(v.by>0){
+      return `${fmtF(v.by)}/year / 12 x ${months} months = ${fmtF(rLE(v.by/12*months))}`;
+    }
+    return `${months} months`;
+  }
+
+  // ===== APL =====
+  let a=`The Anticipated Probable Loss (APL) estimate assumes all fire protection systems operate as installed and that emergency response personnel, both the site's Plant Emergency Organization (PEO) and public fire agencies, respond in accordance with existing plans.${hrN}\n\n`;
+
+  if(apl.eq){
+    a+=`Due to ${S.sprinklerAdequate==="none"?"the absence of automatic sprinkler protection":"identified protection deficiencies"}, the APL is equal to the PML for this facility. Refer to the PML narrative for the loss scenario and supporting calculations.\n\n`;
+    a+=`APL Property Damage (= PML): ${fmtF(pml.pT)}`;
+    if(pml.biM){a+=`\nBusiness Interruption: ${biText(pml.biM)}`;}
+  } else if(apl.sc&&APL_SC[apl.sc]&&v.a>0){
+    const s=APL_SC[apl.sc],sysD=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
+    const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(pf(S.designArea)||1500,v.a);if(x==="2x")return Math.min((pf(S.designArea)||1500)*2,v.a);if(x==="5x")return Math.min((pf(S.designArea)||1500)*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
+    const rAL=x=>{if(typeof x==="number")return fN(x)+" sqft";if(x==="design")return fN(pf(S.designArea)||1500)+" sqft (design area)";if(x==="2x")return fN(rA(x))+" sqft (2x fire area)";if(x==="5x")return fN(rA(x))+" sqft (5x fire area)";if(x==="comp")return fN(rA(x))+" sqft (compartment)";return"0"};
+
+    a+=`The worst case APL scenario involves a fire originating in the ${occ.toLowerCase()} area, a ${fN(v.a)} sq ft ${ct.toLowerCase()} building protected by a ${sys} automatic sprinkler system. Per FP 5020 Table 1A, Scenario ${apl.sc} (${s.d}), the fire would be controlled by the sprinkler system with damage distributed across three zones as follows:\n\n`;
+    a+=`Site Values (primary building):\n`;
+    a+=`  Building:      ${fmtF(v.tb)} total, $${v.bpsf.toFixed(2)}/sqft\n`;
+    a+=`  Equipment/M&E: ${fmtF(v.te)} total, $${v.epsf.toFixed(2)}/sqft\n`;
+    a+=`  Inventory/WIP: ${fmtF(v.ti)} total, $${v.ipsf.toFixed(2)}/sqft\n\n`;
+
+    ["fire","water","smoke"].forEach(t=>{
+      const d=sysD[t],ar=rA(d.a);
+      const bD=(v.tb/v.a)*d.b*ar, eD=(v.te/v.a)*d.e*ar, iD=(v.ti/v.a)*d.i*ar;
+      const tU=t.charAt(0).toUpperCase()+t.slice(1);
+      a+=`${tU} Damage Zone: ${rAL(d.a)}\n`;
+      a+=`  Bldg:  $${v.bpsf.toFixed(2)}/sqft x ${pct(d.b)} x ${fN(ar)} sqft = ${fmtF(rLE(bD))}\n`;
+      a+=`  Equip: $${v.epsf.toFixed(2)}/sqft x ${pct(d.e)} x ${fN(ar)} sqft = ${fmtF(rLE(eD))}\n`;
+      a+=`  Inv:   $${v.ipsf.toFixed(2)}/sqft x ${pct(d.i)} x ${fN(ar)} sqft = ${fmtF(rLE(iD))}\n\n`;
+    });
+
+    a+=`  Building:      ${fmtF(apl.pB)}\n`;
+    a+=`  Equipment/M&E: ${fmtF(apl.pE)}\n`;
+    a+=`  Inventory/WIP: ${fmtF(apl.pI)}\n`;
+    a+=`  ─────────────────────────────\n`;
+    a+=`  Total APL PD:  ${fmtF(apl.pT)}\n\n`;
+    // Parse APL BI range to get dollar estimate
+    let aplBiDollar="";
+    if(v.by>0&&apl.bi){
+      const biStr=apl.bi.toLowerCase();
+      let lowDays=0,highDays=0;
+      if(biStr.includes("day")){const nums=biStr.match(/(\d+)/g);if(nums){lowDays=parseInt(nums[0]);highDays=nums[1]?parseInt(nums[1]):lowDays;}}
+      else if(biStr.includes("week")){const nums=biStr.match(/(\d+)/g);if(nums){lowDays=parseInt(nums[0])*7;highDays=nums[1]?parseInt(nums[1])*7:lowDays;}}
+      if(lowDays>0){
+        const lowBI=rLE(v.by/365*lowDays),highBI=rLE(v.by/365*highDays);
+        if(S.biMode==="percent"&&pf(S.biPct)>0){
+          aplBiDollar=` (${pf(S.biPct)}% of annual production for ${lowDays} to ${highDays} days)`;
+        } else {
+          aplBiDollar=` (${fmtF(v.by)}/year / 365 x ${lowDays}-${highDays} days = ${fmtF(lowBI)} to ${fmtF(highBI)})`;
+        }
+      }
+    }
+    a+=`Business Interruption: ${apl.bi}${aplBiDollar} (per Table 1A, Scenario ${apl.sc})`;
+  }
+  S.aplN=a;
+
+  // ===== PML =====
+  let p=`The Probable Maximum Loss (PML) estimate assumes a single impairment to the fire protection system at the time of the incident, specifically the ${sysName} being out of service. Emergency response personnel are assumed to respond in accordance with existing plans, though notification may be delayed due to the impaired system.${hrN}\n\n`;
+
+  if(pml.eq){
+    p+=`${pml.rsn}.\n\n`;
+    p+=`PML Property Damage (= MFL): ${fmtF(pml.pT)}`;
+    if(pml.biM){p+=`\nBusiness Interruption: ${biText(pml.biM)}`;}
+  } else {
+    const da=pf(S.designArea)||1500, pa=pml.pmlFA||da*1.5;
+    p+=`With the ${sysName} impaired, there is no containment of the fire until it reaches the boundary of the sprinkler system zone. The PML fire area is estimated at ${fN(Math.round(pa))} sq ft, based on the sprinkler design area of ${fN(da)} sq ft plus 50% for fire growth before external response limits the spread. The ${S.fdType==="fullypaid"?"fully-paid fire department":"fire department"} is assumed to respond and contain the fire in conjunction with physical separations.\n\n`;
+
+    if(pml.zones&&pml.zones.length>0&&apl.sc){
+      const aplFA=pml.zones[0].aplA;
+      const sf=aplFA>0?(pa/aplFA):1;
+      p+=`The damage zones are scaled proportionally from APL Scenario ${apl.sc}. The APL fire zone is ${fN(aplFA)} sqft and the PML fire area is ${fN(Math.round(pa))} sqft, giving a scale factor of ${sf.toFixed(2)}x:\n\n`;
+
+      pml.zones.forEach(z=>{
+        const tU=z.type.charAt(0).toUpperCase()+z.type.slice(1);
+        p+=`${tU} Zone: ${fN(z.aplA)} sqft (APL) x ${sf.toFixed(2)} = ${fN(z.pmlA)} sqft (PML)\n`;
+        p+=`  Bldg:  $${v.bpsf.toFixed(2)}/sqft x ${pct(z.bPct)} x ${fN(z.pmlA)} sqft = ${fmtF(z.bD)}\n`;
+        p+=`  Equip: $${v.epsf.toFixed(2)}/sqft x ${pct(z.ePct)} x ${fN(z.pmlA)} sqft = ${fmtF(z.eD)}\n`;
+        p+=`  Inv:   $${v.ipsf.toFixed(2)}/sqft x ${pct(z.iPct)} x ${fN(z.pmlA)} sqft = ${fmtF(z.iD)}\n\n`;
+      });
+    }
+
+    p+=`  Building:      ${fmtF(pml.pB)}\n`;
+    p+=`  Equipment/M&E: ${fmtF(pml.pE)}\n`;
+    p+=`  Inventory/WIP: ${fmtF(pml.pI)}\n`;
+    p+=`  ─────────────────────────────\n`;
+    p+=`  Total PML PD:  ${fmtF(pml.pT)}${pml.aplFloor?" (adjusted up to APL floor)":""}\n\n`;
+    p+=`Business Interruption: ${biText(pml.biM)} (per Table 4)`;
+  }
+
+  if(hr){
+    const Hv=pf(S.floorToWindow),hv=pf(S.windowHeight),rat=hv>0?Hv/hv:0;
+    const en=S.extType==="combustible"?"Combustible exterior cladding is present, so exterior fire spread is assumed."
+      :S.extType!=="none"&&Hv>0&&hv>0?`The H/h ratio is ${rat.toFixed(2)} (${S.extType==="closed"?"2.8 required for closed windows":"3.8 required for openable windows"}). Exterior spread is ${S.extSpreadPossible?"possible":"not expected"}.`
+      :"No combustible exterior or openable windows, so no exterior fire spread.";
+    p+=`\n\nHigh-Rise PML per Figure 2 and Table 2: ${en} The PML involves ${hrFF()} fire floor(s), smoke damage of 20% to contents on ${hrSF()} floors above, and water damage of 15% to contents on ${hrWF()} floors below.`;
+  }
+  S.pmlN=p;
+
+  // ===== MFL =====
+  let m=`The Maximum Foreseeable Loss (MFL) estimate assumes the complete failure of all active fire suppression systems and no effective response from the site PEO or public fire agencies. Under these conditions, 100% destruction of all property within the MFL fire area is assumed.${hrN}\n\n`;
+
+  m+=`Total Site Property Damage: ${fmtF(mfl.sitePD)}\n`;
+  m+=`  Building:      ${fmtF(v.tb)}\n`;
+  m+=`  Equipment/M&E: ${fmtF(v.te)}\n`;
+  m+=`  Inventory/WIP: ${fmtF(v.ti)}\n`;
+
+  if(mfl.hasFW){
+    const fwPct=(mfl.mflA/v.a*100).toFixed(1);
+    m+=`\nA credited 4-hour rated MFL fire wall limits the primary building fire area to ${fN(mfl.mflA)} sq ft (${fwPct}% of ${fN(v.a)} sq ft). The portion of the primary building behind the fire wall is excluded:\n`;
+    m+=`  Fire wall reduction: -${fmtF(mfl.fwReduction)}\n`;
+  }
+
+  if(mfl.exclB.length>0||mfl.inclB.length>0){
+    m+=`\nBuilding Separation Analysis (Table 3a):\n`;
+    m+=`The total site values include all buildings. Buildings with adequate separation per Table 3a are subtracted from the MFL since the fire is not expected to spread to those structures.\n\n`;
+    mfl.exclB.forEach(b=>{m+=`  ${b.name}: ${fN(b.act)} ft actual vs ${b.req} ft required. Adequate separation, ${fmtF(b.value)} subtracted from MFL.\n`;});
+    mfl.inclB.forEach(b=>{m+=`  ${b.name}: ${pf(b.act)>0?fN(b.act)+" ft actual":"separation not specified"} vs ${b.req} ft required. Inadequate separation, ${fmtF(b.value)} remains in MFL.\n`;});
+  }
+
+  m+=`\n  Total Site PD:         ${fmtF(mfl.sitePD)}`;
+  if(mfl.fwReduction>0) m+=`\n  Fire Wall Reduction:  -${fmtF(mfl.fwReduction)}`;
+  if(mfl.exclPD>0) m+=`\n  Separated Buildings:  -${fmtF(mfl.exclPD)}`;
+  m+=`\n  ─────────────────────────────\n  Total MFL PD:          ${fmtF(mfl.pT)}`;
+
+  m+=`\n\nBusiness Interruption: ${biText(mfl.biM)} (per Table 4, ${occ}, ${ct})`;
+
+  if(hr){
+    const en2=S.extType==="combustible"?"The building has combustible exterior cladding, so exterior fire spread is assumed."
+      :S.extType!=="none"&&pf(S.floorToWindow)>0&&pf(S.windowHeight)>0?`H/h ratio is ${(pf(S.floorToWindow)/pf(S.windowHeight)).toFixed(2)}.`:"";
+    m+=`\n\nHigh-Rise MFL: ${en2} ${!S.extSpreadPossible?"The fire originates on the floor below the greatest value and progresses to the floor above through open penetrations, resulting in 2 fire floors at 100% damage. Smoke damage of 20% extends to 4 floors above and water damage of 15% extends to 6 floors below. BI is estimated at 9 to 12 months.":"With exterior fire spread possible, the fire progresses from the ground floor to the fire-stop mechanical floor or the top of the building. All involved floors sustain 100% damage. Smoke damage of 20% extends to 6 floors above and water damage of 15% extends to 10 floors below. BI is estimated at 18 to 24 months."}`;
+  }
+  S.mflN=m;
+}
+
+// UI
+function fd(l,h){return`<div class="fd"><label>${l}</label>${h}</div>`}
+function inp(k,ph,tp){return`<input type="${tp||'text'}" value="${esc(S[k])}" placeholder="${ph||''}" oninput="su('${k}',this.value)" onblur="ib('${k}',this)">`}
+function sel(k,os){return`<select onchange="set('${k}',this.value)">${os.map(o=>`<option value="${esc(o[0])}"${S[k]===o[0]?' selected':''}>${esc(o[1])}</option>`).join('')}</select>`}
+function tog(l,k){return`<div class="tg" onclick="set('${k}',!S['${k}'])"><div class="tgt${S[k]?' on':''}"><div class="tgk"></div></div><span>${l}</span></div>`}
+function vc(l,v,s,c){return`<div class="vc"><div class="vl">${l}</div><div class="vv ${c||''}">${v}</div>${s?`<div class="vs">${s}</div>`:''}</div>`}
+function copyEl(id){const e=document.getElementById(id);if(e)navigator.clipboard.writeText(e.value||e.textContent)}
+function copyAll(){const t=[S.aplN,S.pmlN,S.mflN].join('\n\n---\n\n');navigator.clipboard.writeText(t)}
+
+// TABS
+const TN=["Site Info","Values","BI","APL","PML","MFL","Summary","High Rise","Revision"];
+
+function r0(){
+  const oo=Object.keys(MFL_T).map(k=>[k,k]);
+  let bhtml=S.buildings.map((b,i)=>{
+    return`<div class="brow" style="grid-template-columns:30px 1.2fr .7fr .7fr .8fr 40px">
+    <input type="radio" class="pri-radio" name="pri" ${i===S.primaryIdx?'checked':''} onchange="setPrimary(${i})" title="Set as primary fire area">
+    <div class="fd" style="margin:0"><input type="text" value="${esc(b.name)}" placeholder="Building ${i+1}" oninput="setBldg(${i},'name',this.value)" onblur="setBldgR(${i},'name',this)"></div>
+    <div class="fd" style="margin:0"><input type="number" value="${esc(b.area)}" placeholder="sqft" oninput="setBldg(${i},'area',this.value)" onblur="setBldgR(${i},'area',this)"></div>
+    <div class="fd" style="margin:0"><select onchange="S.buildings[${i}].construction=this.value;render()"><option value="fr"${b.construction==="fr"?" selected":""}>FR</option><option value="hnc"${b.construction==="hnc"?" selected":""}>HNC</option><option value="lnc"${b.construction==="lnc"?" selected":""}>LNC</option><option value="comb"${b.construction==="comb"?" selected":""}>Comb</option></select></div>
+    <div class="fd" style="margin:0"><select onchange="S.buildings[${i}].occupancy=this.value;render()">${oo.map(o=>`<option value="${esc(o[0])}"${(b.occupancy||"Warehousing")===o[0]?' selected':''}>${esc(o[1].length>18?o[1].slice(0,18)+'...':o[1])}</option>`).join('')}</select></div>
+    ${S.buildings.length>1?`<button class="brm" onclick="rmBldg(${i})">✕</button>`:'<div></div>'}
+  </div>`}).join('');
+
+  return`<div class="cd"><h3 class="ct">Site Information</h3>
+  <div class="g3">${fd("Site Name",inp("siteName","e.g. ABC Manufacturing"))}${fd("Account Number",inp("accountNo",""))}${fd("Survey Date",inp("surveyDate","","date"))}</div></div>
+  <div class="cd"><h3 class="ct">Buildings</h3>
+  <div class="note">List all buildings on the site. Select the radio button next to the building that will be used as the primary fire area for APL and PML. Additional buildings will be evaluated for MFL separation on the MFL tab.</div>
+  <div style="display:grid;grid-template-columns:30px 1.2fr .7fr .7fr .8fr 40px;gap:6px;margin-bottom:4px;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Fire</div><div>Name</div><div>Area (sqft)</div><div>Const.</div><div>Occupancy</div><div></div></div>
+  ${bhtml}
+  <div class="add-b" onclick="addBldg()">+ Add Building</div>
+  <div style="margin-top:10px;font-size:11px;color:var(--muted)">Primary fire area: <strong style="color:var(--accent)">${pb().name||"Building "+(S.primaryIdx+1)}</strong> (${fN(primaryArea())} sqft, ${CL[primaryConst()]||""}) | Total site: ${fN(totalSqft())} sqft</div>
+  </div>
+  <div class="cd"><h3 class="ct">Primary Building Protection</h3>
+  ${fd("NFPA Hazard Classification",sel("hazardClass",[["light","Light Hazard"],["ordinary","Ordinary Hazard"],["extra","Extra Hazard"]]))}
+  <div class="tgr" style="margin-bottom:10px">${tog("Storage Occupancy","isStorage")}${tog("Sensitive Occupancy","isSensitive")}</div>
+  <div class="g2">${fd("Sprinkler Type",sel("sprinklerType",[["wet","Wet Pipe"],["dry","Dry Pipe"]]))}${fd("Adequacy",sel("sprinklerAdequate",[["adequate","Reliable & Fully Adequate"],["deficient","Not Fully Adequate"],["none","No Sprinkler Protection"]]))}</div>
+  ${S.sprinklerAdequate==="deficient"?fd("% of Design Provided",inp("designPct","80","number")):""}
+  <div class="g2">${fd("Protection Configuration",sel("protType",[["standard","Standard (CMDA)"],["esfr","ESFR"],["cmsa","CMSA"]]))}${fd("Sprinkler Design Area (sqft)",inp("designArea","1500","number"))}</div>
+  ${fd("Compartment / Room Area (sqft)",inp("compArea","Entire building if open","number"))}
+  <div class="tgr">${tog("Significant FL/CL","hasFL")}${tog("Alarms, FD & PEO Adequate","alarmsOk")}</div></div>`;
+}
+
+function r1(){
+  const v=gv(),ts=totalSqft();
+  let distHtml=S.buildings.map((b,i)=>{const ba=pf(b.area),pct=ts>0?(ba/ts*100).toFixed(1):0;return`<div style="font-size:12px;color:var(--text);padding:4px 0"><strong>${b.name||"Building "+(i+1)}</strong>: ${fN(ba)} sqft (${pct}%) = ${fmtF(bldgValue(i))}${pf(b.value)>0?' <span style="color:var(--accent)">(override)</span>':''}</div>`}).join('');
+  return`<div class="cd"><h3 class="ct">Total Site Property Values</h3>
+  <p style="color:var(--muted);font-size:11px;margin-bottom:10px">Enter the total reported values. They distribute to buildings proportionally by square footage unless you override a building's value on the MFL tab.</p>
+  <div class="g3">${fd("Total Building ($)",inp("totalBldg","10,000,000","number"))}${fd("Total Equipment/M&E ($)",inp("totalEquip","25,000,000","number"))}${fd("Total Inventory/WIP ($)",inp("totalInv","2,000,000","number"))}</div></div>
+  <div class="cd"><h3 class="ct">Primary Building ($/sqft)</h3>
+  <div style="margin-bottom:8px;font-size:11px;color:var(--muted)">Based on primary building area of ${fN(v.a)} sqft</div>
+  <div class="g3">${vc("Building","$"+v.bpsf.toFixed(2),fmtF(v.tb))}${vc("Equipment","$"+v.epsf.toFixed(2),fmtF(v.te))}${vc("Inv/WIP","$"+v.ipsf.toFixed(2),fmtF(v.ti))}</div></div>
+  ${S.buildings.length>1?`<div class="cd"><h3 class="ct">Value Distribution by Building</h3>${distHtml}</div>`:''}`;
+}
+
+function rBI(){
+  const v=gv(),biD=v.by;
+  return`<div class="cd"><h3 class="ct">Business Interruption</h3>
+  ${fd("BI Input Method",sel("biMode",[["dollar","Dollar Value ($/year)"],["percent","% of Annual Production"]]))}
+  ${S.biMode==="dollar"?fd("Business Interruption ($/year)",inp("biYearly","6,000,000","number")):`<div class="g2">${fd("Annual Production/Revenue ($)",inp("annualProd","50,000,000","number"))}${fd("BI as % of Annual Production",inp("biPct","25","number"))}</div>
+  <div class="note">Consider single-source production, equipment lead times, market share at risk, contractual penalties, and ability to shift production to other facilities.</div>`}
+  </div>
+  <div class="cd"><h3 class="ct">BI Summary</h3>
+  <div class="g3">${vc("Annual BI",fmtF(biD),"","wrn")}${vc("Monthly Rate",fmtF(biD/12))}${vc("Total PD",fmt(v.pd))}</div></div>`;
+}
+
+function r2(){
+  genN();const apl=calcAPL(),pml=calcPML();const showP=apl.eq;
+  return`<div class="cd"><h3 class="ct">Table 1B, Sprinkler Deficiencies</h3>
+  <div class="note">Select identified deficiencies. Multiple bolded categories means APL equals PML.</div>
+  ${fd("<strong>Inadequate Heads/Design Pressure</strong>",sel("defHP",[["none","None"],["ge80","At least 80% of required"],["lt80","Less than 80% of required"]]))}
+  ${fd("<strong>K-14 ESFR in >35ft Buildings</strong>",sel("defESFR",[["none","None / N/A"],["clearance_ok","Clearance acceptable"],["clearance_bad","Clearance exceeds limits"],["over40ft","Building height exceeds 40 ft"]]))}
+  ${fd("<strong>Open-Top Containers</strong>",sel("defOT",[["none","None / N/A"],["top_gt20","Top tier > 20% of rack footprint"],["less_adequate","Less density + adequate water"],["less_inadequate","Less density + inadequate water"]]))}
+  ${fd("<strong>Flue Spaces (CMDA/CMSA)</strong>",sel("defFC",[["none","None / N/A"],["one_dir","One direction inadequate"],["both_dir","Both directions inadequate"]]))}
+  <div class="tgr" style="margin-bottom:8px">${tog("<strong>Flue Spaces (ESFR), any direction</strong>","defFE")}</div>
+  ${fd("<strong>Smoke/Heat Vents</strong>",sel("defV",[["none","None / N/A"],["compliant","Per NFPA 13 & 204"],["noncompliant","NOT per NFPA 13 & 204"]]))}
+  ${fd("<strong>Obstructions (ESFR)</strong>",sel("defOE",[["none","None / N/A"],["one","1 head"],["up_to_3","2-3 heads"],["gt3","More than 3 heads"]]))}
+  ${fd("<strong>Obstructions (CMDA/CMSA)</strong>",sel("defOC",[["none","None / N/A"],["up_to_3","1-3 heads"],["up_to_6","4-6 heads"],["gt6","More than 6 heads"]]))}
+  ${countBold()>0?`<div style="margin-top:8px"><span class="${getT1B().eq?'bdg bdg-d':'bdg bdg-s'}">${getT1B().eq?'APL = PML':'Scenario '+(getT1B().sc||'')}</span> <span style="color:var(--muted);font-size:11px;margin-left:6px">${getT1B().rsn}</span></div>`:''}</div>
+  <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">APL Results</h3>${apl.sc?`<span class="bdg bdg-s">Scenario ${apl.sc}</span>`:apl.eq?'<span class="bdg bdg-d">APL = PML</span>':'<span class="bdg bdg-m">Incomplete</span>'}</div>
+  <div class="rbox"><div class="rt">Decision Path</div>${apl.R.map(r=>`<div class="ri"><span class="ar">></span>${esc(r)}</div>`).join('')}</div>
+  <div class="g3" style="margin-bottom:6px">${vc("Building",fmt(showP?pml.pB:apl.pB))}${vc("Equipment",fmt(showP?pml.pE:apl.pE))}${vc("Inv/WIP",fmt(showP?pml.pI:apl.pI))}</div>
+  <div class="g2">${vc("Total APL PD",fmt(showP?pml.pT:apl.pT),"","dng")}${vc("BI",showP?(pml.biM+" months"):(apl.bi||"N/A"),"","wrn")}</div></div>
+  <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">APL Narrative</h3><button class="bnc" onclick="copyEl('aplTA')">Copy</button></div>
+  ${fd("",`<textarea id="aplTA" oninput="su('aplN',this.value)" onblur="ib('aplN',this)">${esc(S.aplN)}</textarea>`)}</div>`;
+}
+
+function r3(){
+  const pml=calcPML(),v=gv(),dA=pf(S.designArea)||1500,calcA=Math.min(Math.round(dA*1.5),v.a||Infinity),usedA=pf(S.pmlArea)>0?Math.min(pf(S.pmlArea),v.a||Infinity):calcA;
+  return`<div class="cd"><h3 class="ct">PML Configuration</h3>
+  <div class="note">The PML fire area represents the area that would burn before the fire department or physical barriers contain the fire, given the single system failure. With no sprinkler containment, the fire grows to the full sprinkler zone area plus additional spread before response.</div>
+  <div class="g2">${fd("Single System Failure",sel("pmlSystem",[["sprinkler_riser","Sprinkler Riser / Control Valve"],["fire_pump","Fire Pump"],["detection","Detection / Alarm System"],["clean_agent","Clean Agent System"],["foam_system","Foam System"],["deluge","Deluge System"],["other","Other"]]))}
+  ${fd("PML Fire Area Override (sqft)<br><span style='font-size:9px;color:var(--dim)'>Leave blank for default</span>",inp("pmlArea","","number"))}</div>
+  <div style="background:var(--ibg);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;font-size:11px;color:var(--text)">
+    <strong style="color:var(--accent)">PML Fire Area: ${fN(usedA)} sqft</strong>
+    <span style="color:var(--muted);margin-left:6px">${pf(S.pmlArea)>0?"(override)":"(default: "+fN(dA)+" sqft design area x 1.5 = "+fN(calcA)+" sqft)"}</span>
+  </div>
+  <div class="g2">${fd("FD Response",sel("fdTime",[["prompt","Prompt (under 40 min)"],["delayed","Delayed (over 40 min), PML=MFL"]]))}${fd("FD Type",sel("fdType",[["fullypaid","Fully Paid & Well Equipped"],["combination","Combination"],["volunteer","Volunteer"]]))}</div>
+  <div class="tgr">${tog("Combustible Construction/Cladding","hasCombConst")}</div></div>
+  <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">PML Results</h3>${pml.eq?'<span class="bdg bdg-d">PML = MFL</span>':''}${pml.aplFloor?'<span class="bdg bdg-w" style="margin-left:4px">PML >= APL</span>':''}</div>
+  <div class="g3" style="margin-bottom:6px">${vc("Building",fmt(pml.pB))}${vc("Equipment",fmt(pml.pE))}${vc("Inv/WIP",fmt(pml.pI))}</div>
+  <div class="g2">${vc("Total PML PD",fmt(pml.pT),"","dng")}${vc("BI",pml.biM+" months",v.by>0?fmtF(pml.bV):"","wrn")}</div></div>
+  <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">PML Narrative</h3><button class="bnc" onclick="copyEl('pmlTA')">Copy</button></div>
+  ${fd("",`<textarea id="pmlTA" oninput="su('pmlN',this.value)" onblur="ib('pmlN',this)">${esc(S.pmlN)}</textarea>`)}</div>`;
+}
+
+function r4(){
+  const mfl=calcMFL(),v=gv();
+  let sepHtml='';
+  S.buildings.forEach((b,i)=>{if(i===S.primaryIdx)return;
+    const req=getSepReq(primaryConst(),b.construction||primaryConst(),S.hazardClass),act=pf(b.separation),ok=act>=req&&act>0;
+    sepHtml+=`<div style="display:grid;grid-template-columns:1.3fr .7fr .7fr .7fr .8fr;gap:6px;align-items:end;margin-bottom:4px">
+    <div class="fd" style="margin:0"><input disabled value="${esc(b.name||'Building '+(i+1))}" style="opacity:.7"></div>
+    <div class="fd" style="margin:0"><input disabled value="${fN(pf(b.area))}" style="opacity:.7"></div>
+    <div class="fd" style="margin:0"><input type="number" value="${esc(b.separation)}" placeholder="ft" oninput="setBldg(${i},'separation',this.value)" onblur="setBldgR(${i},'separation',this)"></div>
+    <div class="fd" style="margin:0"><input type="number" value="${esc(b.value)}" placeholder="auto" oninput="setBldg(${i},'value',this.value)" onblur="setBldgR(${i},'value',this)"></div>
+    <div style="font-size:11px;padding-bottom:8px;color:var(--muted)">Req: ${req} ft</div>
+    </div>
+    ${act>0?`<div class="${ok?'sep-ok':'sep-bad'}" style="margin-bottom:8px">${ok?'✓':'✗'} ${fN(act)} ft actual vs ${req} ft required. ${ok?fmtF(bldgValue(i))+' excluded from MFL':fmtF(bldgValue(i))+' included in MFL at 100%'}</div>`:''}`;
+  });
+
+  return`<div class="cd"><h3 class="ct">MFL Configuration</h3>
+  <div class="note">MFL assumes 100% destruction within the fire area. Only a credited 4-hour fire wall can limit the MFL area within the primary building.</div>
+  <div class="tgr" style="margin-bottom:10px">${tog("4-Hour MFL Fire Wall Credited","fw4hr")}</div>
+  ${S.fw4hr?`<div class="note">Enter the area on the larger/higher-value side of the fire wall. These are exceptionally rare; consult with the account team and chief engineer.</div>
+  ${fd("Fire Area on Side of Origin (sqft)",inp("fwArea","","number"))}`:''}
+  </div>
+  ${S.buildings.length>1?`<div class="cd"><h3 class="ct">Building Separation (Table 3a)</h3>
+  <div class="note">Enter the separation distance from the primary building to each adjacent building. Buildings meeting the minimum distance per Table 3a are excluded from the MFL. You can override the auto-distributed value if needed.</div>
+  <div style="display:grid;grid-template-columns:1.3fr .7fr .7fr .7fr .8fr;gap:6px;margin-bottom:4px;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Building</div><div>Area</div><div>Sep. (ft)</div><div>Value ($)</div><div>Required</div></div>
+  ${sepHtml}</div>`:``}
+  <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">MFL Results</h3><span class="bdg bdg-d">${mfl.hasFW?(mfl.mflA/v.a*100).toFixed(0)+"% of primary":"100% Total Loss"}</span></div>
+  <div class="g3" style="margin-bottom:6px">${vc("Total Site PD",fmt(mfl.sitePD))}${vc("Separated / Excluded","-"+fmt(mfl.exclPD+(mfl.fwReduction||0)),mfl.exclB.length+" bldg(s) + wall","suc")}${vc("Total MFL PD",fmt(mfl.pT),"","dng")}</div>
+  <div class="g2">${vc("BI",mfl.biM+" months",v.by>0?fmtF(mfl.bV):"","wrn")}${vc("Total Exposure",fmt(mfl.pT+(mfl.bV||0)),"PD + BI")}</div></div>
+  <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">MFL Narrative</h3><button class="bnc" onclick="copyEl('mflTA')">Copy</button></div>
+  ${fd("",`<textarea id="mflTA" oninput="su('mflN',this.value)" onblur="ib('mflN',this)">${esc(S.mflN)}</textarea>`)}</div>`;
+}
+
+function r5(){
+  genN();const apl=calcAPL(),pml=calcPML(),mfl=calcMFL(),v=gv();const aplPD=apl.eq?pml.pT:apl.pT;
+  return`<div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">Loss Estimate Summary, ${S.siteName||"Unnamed Site"}</h3><button class="bnc" onclick="copyAll()">Copy All Narratives</button></div>
+  <div style="color:var(--muted);font-size:10px;margin-bottom:12px">${S.accountNo?S.accountNo+" | ":""}${fN(primaryArea())} sqft | ${CL[primaryConst()]||""} | ${primaryOcc()} | Total PD: ${fmt(v.pd)}</div>
+  <div class="g3">${[{t:"APL",v:aplPD,c:"suc",s:apl.sc?"Scenario "+apl.sc:apl.eq?"= PML":""},{t:"PML",v:pml.pT,c:"wrn",s:pml.eq?"= MFL":"Single System"},{t:"MFL",v:mfl.pT,c:"dng",s:"Total Loss"}].map(l=>`<div style="background:var(--ibg);border-radius:8px;padding:16px;text-align:center;border:1px solid var(--border)"><div style="font-size:15px;font-weight:700;color:var(--${l.c})">${l.t}</div><div style="color:var(--muted);font-size:9px;margin:2px 0 8px;text-transform:uppercase">${l.s}</div><div style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace">${fmt(l.v)}</div></div>`).join('')}</div></div>
+  <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">APL Narrative</h3><button class="bnc" onclick="copyEl('sA')">Copy</button></div><div class="nd" id="sA">${esc(S.aplN)}</div></div>
+  <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">PML Narrative</h3><button class="bnc" onclick="copyEl('sP')">Copy</button></div><div class="nd" id="sP">${esc(S.pmlN)}</div></div>
+  <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">MFL Narrative</h3><button class="bnc" onclick="copyEl('sM')">Copy</button></div><div class="nd" id="sM">${esc(S.mflN)}</div></div>`;
+}
+
+function r6(){
+  const H=pf(S.floorToWindow),h=pf(S.windowHeight),rat=h>0?H/h:0;
+  let extR="";if(!S.isHighRise)extR="";
+  else if(S.extType==="combustible"){S.extSpreadPossible=true;extR="Combustible construction materials on the exterior. External fire spread should be assumed for all floors where these materials are used.";}
+  else if(S.extType==="none"){S.extSpreadPossible=false;extR="Blank exterior wall or mechanical floor serves as a vertical fire stop. No exterior fire spread.";}
+  else if(S.extType==="closed"&&H>0&&h>0){if(rat>=2.8){S.extSpreadPossible=false;extR=`H/h = ${H} / ${h} = ${rat.toFixed(2)}, which meets the 2.8 threshold. No exterior fire spread with closed windows.`;}else{S.extSpreadPossible=true;extR=`H/h = ${H} / ${h} = ${rat.toFixed(2)}, which is below the 2.8 threshold. Exterior fire spread is possible with closed windows.`;}}
+  else if(S.extType==="open"&&H>0&&h>0){if(rat>=3.8){S.extSpreadPossible=false;extR=`H/h = ${H} / ${h} = ${rat.toFixed(2)}, which meets the 3.8 threshold. No exterior fire spread with openable windows.`;}else{S.extSpreadPossible=true;extR=`H/h = ${H} / ${h} = ${rat.toFixed(2)}, which is below the 3.8 threshold. Exterior fire spread is possible with openable windows.`;}}
+  return`<div class="cd"><h3 class="ct">High Rise Configuration</h3>
+  <div class="note">For buildings where the top floor exceeds the effective reach of fire department aerial equipment (generally 60 to 100 ft above grade).</div>
+  <div class="tgr" style="margin-bottom:12px">${tog("High Rise Building","isHighRise")}</div>
+  ${S.isHighRise?`<div class="note" style="background:rgba(176,122,16,.06);border-color:rgba(176,122,16,.2);color:var(--warn)">Important: When evaluating a high-rise building, go back to the Site Info tab and confirm that the primary building occupancy type (currently set to ${primaryOcc()}) correctly reflects the occupancy of this high-rise structure. The APL, PML, and MFL calculations are all driven by the occupancy and construction type of the primary building.</div>
+  ${fd("Number of Stories",inp("stories","","number"))}
+  <div class="tgr" style="margin-bottom:12px">${tog("Top floor below max reach of FD aerial equipment","topFloorBelowFD")}</div></div>
+  <div class="cd"><h3 class="ct">Exterior Fire Spread (FMDS 1-3)</h3>
+  <div class="note">Per FM Data Sheet 1-3, exterior fire spread is not normally possible when the distance from the floor slab to the bottom of the window glass above (H) is at least 2.8 times the window height (h) for closed windows, or 3.8 times for openable windows.</div>
+  ${fd("Window Condition",sel("extType",[["none","Blank wall / mechanical floor"],["closed","Closed or fixed windows"],["open","Openable windows"],["combustible","Combustible cladding (EIFS / IMP / ACM)"]]))}
+  ${S.extType==="closed"||S.extType==="open"?`<div class="g2">${fd("H: Floor slab to window glass above (ft)",inp("floorToWindow","","number"))}${fd("h: Window height (ft)",inp("windowHeight","","number"))}</div>
+  ${H>0&&h>0?`<div style="background:var(--ibg);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:11px">
+    <strong style="color:var(--accent)">H / h = ${H} / ${h} = ${rat.toFixed(2)}</strong><br>
+    ${S.extType==="closed"?"Required for closed windows: 2.8 (minimum H = "+(h*2.8).toFixed(1)+" ft)":"Required for openable windows: 3.8 (minimum H = "+(h*3.8).toFixed(1)+" ft)"}
+  </div>`:''}`:''}
+  ${extR?`<div class="${S.extSpreadPossible?'sep-bad':'sep-ok'}" style="margin-top:8px">${S.extSpreadPossible?'✗':'✓'} ${extR}</div>`:''}
+  </div>
+  <div class="cd"><h3 class="ct">PML, High Rise (Figure 2 / Table 2)</h3>
+  <div style="font-size:12px;line-height:1.7">Fire Floors: <strong>${hrFF()}</strong> | Smoke: 20% to <strong>${hrSF()}</strong> floors above | Water: 15% to <strong>${hrWF()}</strong> floors below</div></div>
+  <div class="cd"><h3 class="ct">MFL, High Rise</h3>
+  <div style="font-size:12px;line-height:1.7">${!S.extSpreadPossible?"No exterior spread. Fire on floor below greatest value, progresses 1 floor up. 2 fire floors at 100%. Smoke 20% to 4 floors above, water 15% to 6 floors below. BI 9 to 12 months.":"Exterior spread possible. Fire from ground floor to fire-stop or top of building. 100% damage all involved floors. Smoke 20% to 6 floors above, water 15% to 10 floors below. BI 18 to 24 months."}</div></div>
+  `:''}`;
+}
+
+function rRev(){
+  return`<div class="cd"><h3 class="ct">Revision History</h3>
+  <table style="width:100%;border-collapse:collapse;font-size:12px">
+  <thead><tr style="border-bottom:2px solid var(--border)"><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Rev</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Date</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Author</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Status</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Description</th></tr></thead>
+  <tbody>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.2</td><td style="padding:8px">03/10/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Buildings-first architecture with multi-building site list and radio selection for primary fire area. Values auto-distribute by sqft with per-building overrides. MFL corrected to start from total site values and subtract adequately separated buildings (previously was adding inadequately separated buildings). Full step-by-step calculations restored in all narratives (APL zone-by-zone math, PML scaled zones with dollar breakdowns, MFL subtraction breakdown). BI supports dollar and percent-of-production modes with mode-aware narrative output. APL BI now includes dollar estimate from Table 1A day ranges. PML narrative references the specific impaired system selected. Sticky footer with live APL/PML/MFL totals. Auto-save to localStorage. Copy All Narratives button. High-rise tab includes occupancy check reminder. GRC branding (#0046AD) with light/dark mode.</td></tr>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--dim)">0.1</td><td style="padding:8px">03/09/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Initial beta release. First trial version presented for internal review. Implements FP 5020 Rev E loss estimate methodology including APL (Table 1A/1B flowcharts, Scenarios A-K), PML (single system failure with proportional zone scaling), and MFL (100% total loss with 4-hr fire wall and multi-building separation per Table 3a). BI calculation, high-rise PML/MFL per Figure 2 / Table 2 with FMDS 1-3 exterior spread analysis (H/h ratio for closed/openable windows). Table 1B sprinkler deficiency engine. Report-ready narrative generation.</td></tr>
+  </tbody></table></div>
+  <div class="cd"><h3 class="ct">Reference</h3><div style="font-size:12px;line-height:1.7">FP 5020 Rev E, Loss Estimates, GRC Fire Protection Practices, effective 10/25. Implements Figures 1A, 1B, 1C, 2 and Tables 1A, 1B, 2, 3a, 4.</div></div>
+  <div class="cd"><h3 class="ct">Disclaimer</h3><div style="font-size:11px;line-height:1.7;color:var(--muted)">This tool is an engineering aid for use by qualified fire protection engineers. All outputs should be reviewed and validated by the responsible engineer before inclusion in any report. The calculated values and narratives are starting points and should be modified as appropriate for site-specific conditions.</div></div>`;
+}
+
+const RF=[r0,r1,rBI,r2,r3,r4,r5,r6,rRev];
+
+function render(){
+  genN();
+  try{localStorage.setItem('fp5020state',JSON.stringify(S))}catch(e){}
+  document.getElementById('tabs').innerHTML=TN.map((t,i)=>`<button class="tb${S.tab===i?' on':''}" onclick="S.tab=${i};render()">${t}</button>`).join('');
+  let h=`<div>${RF[S.tab]()}</div>`;
+  h+=`<div class="nav">${S.tab>0?`<button class="bn bno" onclick="S.tab=${S.tab-1};render()">< ${TN[S.tab-1]}</button>`:'<div></div>'}${S.tab<TN.length-1?`<button class="bn bnp" onclick="S.tab=${S.tab+1};render()">${TN[S.tab+1]} ></button>`:''}</div>`;
+  document.getElementById('cnt').innerHTML=h;
+  // Sticky footer
+  const apl=calcAPL(),pml=calcPML(),mfl=calcMFL();const aplPD=apl.eq?pml.pT:apl.pT;
+  document.getElementById('footer').innerHTML=`<div class="fv"><div class="fl">APL</div><div class="fn suc">${fmt(aplPD)}</div></div><div class="fv"><div class="fl">PML</div><div class="fn wrn">${fmt(pml.pT)}</div></div><div class="fv"><div class="fl">MFL</div><div class="fn dng">${fmt(mfl.pT)}</div></div>`;
+}
+render();
+</script>
+</body>
+</html>
