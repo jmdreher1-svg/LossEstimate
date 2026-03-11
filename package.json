@@ -1,0 +1,14 @@
+{
+  "name": "fp5020-loss-estimate",
+  "version": "0.3.0",
+  "description": "Unit tests for FP 5020 Loss Estimate Calculator",
+  "scripts": {
+    "test": "jest --verbose"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node"
+  }
+}
