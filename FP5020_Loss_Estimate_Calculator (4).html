@@ -291,7 +291,12 @@ function genN(){
 
   if(apl.eq){
     a+=`Due to ${S.sprinklerAdequate==="none"?"the absence of automatic sprinkler protection":"identified protection deficiencies"}, the APL is equal to the PML for this facility. Refer to the PML narrative for the loss scenario and supporting calculations.\n\n`;
-    a+=`APL Property Damage (= PML): ${fmtF(pml.pT)}`;
+    a+=`APL Property Damage (= PML):\n`;
+    a+=`  Building:      ${fmtF(pml.pB)}\n`;
+    a+=`  Equipment/M&E: ${fmtF(pml.pE)}\n`;
+    a+=`  Inventory/WIP: ${fmtF(pml.pI)}\n`;
+    a+=`  ─────────────────────────────\n`;
+    a+=`  Total APL PD:  ${fmtF(pml.pT)}`;
     if(pml.biM){a+=`\nBusiness Interruption: ${biText(pml.biM)}`;}
   } else if(apl.sc&&APL_SC[apl.sc]&&v.a>0){
     const s=APL_SC[apl.sc],sysD=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
@@ -344,7 +349,12 @@ function genN(){
 
   if(pml.eq){
     p+=`${pml.rsn}.\n\n`;
-    p+=`PML Property Damage (= MFL): ${fmtF(pml.pT)}`;
+    p+=`Under these conditions, total destruction of all primary building contents is assumed:\n`;
+    p+=`  Building:      ${fmtF(pml.pB)} (100%)\n`;
+    p+=`  Equipment/M&E: ${fmtF(pml.pE)} (100%)\n`;
+    p+=`  Inventory/WIP: ${fmtF(pml.pI)} (100%)\n`;
+    p+=`  ─────────────────────────────\n`;
+    p+=`  Total PML PD (= MFL): ${fmtF(pml.pT)}`;
     if(pml.biM){p+=`\nBusiness Interruption: ${biText(pml.biM)}`;}
   } else {
     const da=pf(S.designArea)||1500, pa=pml.pmlFA||da*1.5;
@@ -362,6 +372,15 @@ function genN(){
         p+=`  Equip: $${v.epsf.toFixed(2)}/sqft x ${pct(z.ePct)} x ${fN(z.pmlA)} sqft = ${fmtF(z.eD)}\n`;
         p+=`  Inv:   $${v.ipsf.toFixed(2)}/sqft x ${pct(z.iPct)} x ${fN(z.pmlA)} sqft = ${fmtF(z.iD)}\n\n`;
       });
+    } else {
+      p+=`Site Values (primary building):\n`;
+      p+=`  Building:      ${fmtF(v.tb)} total, $${v.bpsf.toFixed(2)}/sqft\n`;
+      p+=`  Equipment/M&E: ${fmtF(v.te)} total, $${v.epsf.toFixed(2)}/sqft\n`;
+      p+=`  Inventory/WIP: ${fmtF(v.ti)} total, $${v.ipsf.toFixed(2)}/sqft\n\n`;
+      p+=`PML Damage (${fN(Math.round(pa))} sqft, per Table 4 percentages):\n`;
+      p+=`  Bldg:  $${v.bpsf.toFixed(2)}/sqft x ${pml.bP}% x ${fN(Math.round(pa))} sqft = ${fmtF(pml.pB)}\n`;
+      p+=`  Equip: $${v.epsf.toFixed(2)}/sqft x ${pml.eP}% x ${fN(Math.round(pa))} sqft = ${fmtF(pml.pE)}\n`;
+      p+=`  Inv:   $${v.ipsf.toFixed(2)}/sqft x ${pml.iP}% x ${fN(Math.round(pa))} sqft = ${fmtF(pml.pI)}\n\n`;
     }
 
     p+=`  Building:      ${fmtF(pml.pB)}\n`;
