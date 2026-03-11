@@ -631,7 +631,6 @@ const RF=[r0,r1,rBI,r2,r3,r4,r5,r6,rRev];
 
 function render(){
   genN();
-  try{localStorage.setItem('fp5020state',JSON.stringify(S))}catch(e){}
   document.getElementById('tabs').innerHTML=TN.map((t,i)=>`<button class="tb${S.tab===i?' on':''}" onclick="S.tab=${i};render()">${t}</button>`).join('');
   let h=`<div>${RF[S.tab]()}</div>`;
   h+=`<div class="nav">${S.tab>0?`<button class="bn bno" onclick="S.tab=${S.tab-1};render()">< ${TN[S.tab-1]}</button>`:'<div></div>'}${S.tab<TN.length-1?`<button class="bn bnp" onclick="S.tab=${S.tab+1};render()">${TN[S.tab+1]} ></button>`:''}</div>`;
