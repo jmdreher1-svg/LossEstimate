@@ -110,7 +110,7 @@ const SYS_LABELS={sprinkler_riser:"sprinkler riser/control valve",fire_pump:"fir
 const S={
   tab:0,siteName:"",accountNo:"",surveyDate:"",
   // Buildings array: each has name, area, construction, occupancy, value (override), separation (for MFL)
-  buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:""}],
+  buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:""}],
   primaryIdx:0, // which building is the primary fire area
   // Site-wide
   hazardClass:"ordinary",isStorage:true,isSensitive:false,
@@ -146,7 +146,7 @@ function totalSqft(){return S.buildings.reduce((s,b)=>s+pf(b.area),0)}
 function primaryArea(){return pf(pb().area)}
 function primaryConst(){return pb().construction}
 function primaryOcc(){return pb().occupancy||"Warehousing"}
-function addBldg(){S.buildings.push({name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:""});render()}
+function addBldg(){S.buildings.push({name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:""});render()}
 function rmBldg(i){if(S.buildings.length<=1)return;S.buildings.splice(i,1);if(S.primaryIdx>=S.buildings.length)S.primaryIdx=0;render()}
 function setBldg(i,k,v){S.buildings[i][k]=v}
 function setBldgR(i,k,el){S.buildings[i][k]=el.value;render()}
@@ -211,10 +211,12 @@ function calcAPL(){
   return{sc,eq,R,pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT:rLE(pB+pE+pI),bi};
 }
 
-// MFL - start with total site values, subtract adequately separated buildings
+// MFL - start with total site values, subtract adequately separated buildings, apply Table 5 percentages
 function calcMFL(){
-  const v=gv(),o=MFL_T[primaryOcc()];if(!o||v.a===0)return{biM:0,pB:0,pE:0,pI:0,pT:0,bV:0,mflA:0,hasFW:false,exclB:[],inclB:[],exclPD:0,sitePD:0};
-  const d=o[primaryConst()]||o.comb;
+  const v=gv(),o=MFL_T[primaryOcc()];if(!o||v.a===0)return{biM:0,pB:0,pE:0,pI:0,pT:0,bV:0,mflA:0,hasFW:false,exclB:[],inclB:[],exclPD:0,sitePD:0,atRiskTotal:0,atRiskBldg:0,atRiskEquip:0,atRiskInv:0,bP:100,eP:100,iP:100};
+  // Use comb percentages if hasCombConst flag is set (combustible cladding)
+  const constKey=(S.hasCombConst&&primaryConst()!=='comb')?'comb':primaryConst();
+  const d=o[constKey]||o.comb;
   let hasFW=S.fw4hr&&pf(S.fwArea)>0;
   let mflA=v.a;if(hasFW)mflA=Math.min(pf(S.fwArea),v.a);
 
@@ -223,7 +225,7 @@ function calcMFL(){
 
   // Fire wall only reduces the primary building proportionally
   let fwReduction=0;
-  if(hasFW){fwReduction=bldgValue(S.primaryIdx)*(1-mflA/v.a);} // Bug fix rev 0.3: use primary building value, not total site PD
+  if(hasFW){fwReduction=bldgValue(S.primaryIdx)*(1-mflA/v.a);}
 
   // Check adjacent buildings for separation
   const exclB=[],inclB=[];
@@ -237,9 +239,19 @@ function calcMFL(){
   // Subtract adequately separated building values
   let exclPD=0;exclB.forEach(b=>{exclPD+=b.value;});
 
-  const totalMFL=rLE(sitePD-fwReduction-exclPD);
+  // Apply Table 5 (MFL_T) damage percentages to at-risk property
+  const atRiskTotal=Math.max(sitePD-fwReduction-exclPD,0);
+  const atRiskFrac=sitePD>0?atRiskTotal/sitePD:0;
+  const atRiskBldg=rLE(v.tb*atRiskFrac);
+  const atRiskEquip=rLE(v.te*atRiskFrac);
+  const atRiskInv=rLE(v.ti*atRiskFrac);
+  const pB=rLE(v.tb*atRiskFrac*(d.b/100));
+  const pE=rLE(v.te*atRiskFrac*(d.e/100));
+  const pI=rLE(v.ti*atRiskFrac*(d.i/100));
+  const pT=Math.max(pB+pE+pI,0);
+
   const biM=d.bi;
-  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT:Math.max(totalMFL,0),bV:rLE(v.by/12*biM),mflA,hasFW,exclB,inclB};
+  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(v.by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:d.b,eP:d.e,iP:d.i};
 }
 
 // PML
@@ -247,7 +259,7 @@ function calcPML(){
   const v=gv(),mfl=calcMFL(),apl=calcAPL();
   if(S.fdTime==="delayed"||primaryConst()==="comb"||S.hasCombConst){
     const rsn=S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":"Combustible construction, so PML = MFL";
-    return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,bP:100,eP:100,iP:100,zones:[],pB:rLE(v.tb),pE:rLE(v.te),pI:rLE(v.ti)};}
+    return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   const o=MFL_T[primaryOcc()];if(!o||v.a===0)return{pB:0,pE:0,pI:0,pT:0,biM:0,eq:false,zones:[]};
   const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||1500;
   let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
@@ -349,10 +361,10 @@ function genN(){
 
   if(pml.eq){
     p+=`${pml.rsn}.\n\n`;
-    p+=`Under these conditions, total destruction of all primary building contents is assumed:\n`;
-    p+=`  Building:      ${fmtF(pml.pB)} (100%)\n`;
-    p+=`  Equipment/M&E: ${fmtF(pml.pE)} (100%)\n`;
-    p+=`  Inventory/WIP: ${fmtF(pml.pI)} (100%)\n`;
+    p+=`Under these conditions, damage is determined by FP 5020 Table 5 (${occ}, ${ct}):\n`;
+    p+=`  Building:      ${fmtF(pml.pB)} (${pml.bP}%)\n`;
+    p+=`  Equipment/M&E: ${fmtF(pml.pE)} (${pml.eP}%)\n`;
+    p+=`  Inventory/WIP: ${fmtF(pml.pI)} (${pml.iP}%)\n`;
     p+=`  ─────────────────────────────\n`;
     p+=`  Total PML PD (= MFL): ${fmtF(pml.pT)}`;
     if(pml.biM){p+=`\nBusiness Interruption: ${biText(pml.biM)}`;}
@@ -401,7 +413,7 @@ function genN(){
   S.pmlN=p;
 
   // ===== MFL =====
-  let m=`The Maximum Foreseeable Loss (MFL) estimate assumes the complete failure of all active fire suppression systems and no effective response from the site PEO or public fire agencies. Under these conditions, 100% destruction of all property within the MFL fire area is assumed.${hrN}\n\n`;
+  let m=`The Maximum Foreseeable Loss (MFL) estimate assumes the complete failure of all active fire suppression systems and no effective response from the site PEO or public fire agencies. Actual damage percentages are determined by construction type and occupancy per FP 5020 Table 5.${hrN}\n\n`;
 
   m+=`Total Site Property Damage: ${fmtF(mfl.sitePD)}\n`;
   m+=`  Building:      ${fmtF(v.tb)}\n`;
@@ -424,7 +436,30 @@ function genN(){
   m+=`\n  Total Site PD:         ${fmtF(mfl.sitePD)}`;
   if(mfl.fwReduction>0) m+=`\n  Fire Wall Reduction:  -${fmtF(mfl.fwReduction)}`;
   if(mfl.exclPD>0) m+=`\n  Separated Buildings:  -${fmtF(mfl.exclPD)}`;
-  m+=`\n  ─────────────────────────────\n  Total MFL PD:          ${fmtF(mfl.pT)}`;
+  if(mfl.fwReduction>0||mfl.exclPD>0){m+=`\n  ─────────────────────────────\n  At-Risk Property:      ${fmtF(mfl.atRiskTotal)}`;}
+
+  // Multi-story scenario description (non-high-rise buildings with >1 floor)
+  const primaryFloors=pf(pb().floors);
+  if(!hr&&primaryFloors>1&&mfl.atRiskTotal>0){
+    const perFloor=rLE(mfl.atRiskTotal/primaryFloors);
+    m+=`\n\nMulti-Story Fire Scenario (${primaryFloors} floors, per FP 5020 Page 7):\nFor a ${primaryFloors}-story non-high-rise building, the MFL assumes fire originating on the floor with the greatest concentration of values. Collateral damage from smoke migration to the floor above and suppression water to the floor below is also expected.\n`;
+    m+=`  At-risk value per floor: ${fmtF(mfl.atRiskTotal)} ÷ ${primaryFloors} floors = ${fmtF(perFloor)}/floor\n`;
+    m+=`  Fire floor:  1 floor × ${fmtF(perFloor)} — 100% structural and contents damage\n`;
+    m+=`  Smoke above: 1 floor × ${fmtF(perFloor)} — 20% contents damage (heat/smoke)\n`;
+    m+=`  Water below: 1 floor × ${fmtF(perFloor)} — 15% contents damage (suppression water)\n`;
+    m+=`The effective overall damage percentages per Table 5 account for this multi-floor impact.\n`;
+  }
+
+  m+=`\n\nTable 5 Damage Percentages (${occ}, ${ct}):\n`;
+  m+=`  Building structure: ${mfl.bP}%\n`;
+  m+=`  Equipment/M&E:      ${mfl.eP}%\n`;
+  m+=`  Inventory/WIP:      ${mfl.iP}%\n\n`;
+  m+=`MFL Property Damage:\n`;
+  m+=`  Building:      ${fmtF(mfl.atRiskBldg)} × ${mfl.bP}% = ${fmtF(mfl.pB)}\n`;
+  m+=`  Equipment/M&E: ${fmtF(mfl.atRiskEquip)} × ${mfl.eP}% = ${fmtF(mfl.pE)}\n`;
+  m+=`  Inventory/WIP: ${fmtF(mfl.atRiskInv)} × ${mfl.iP}% = ${fmtF(mfl.pI)}\n`;
+  m+=`  ─────────────────────────────\n`;
+  m+=`  Total MFL PD:  ${fmtF(mfl.pT)}`;
 
   m+=`\n\nBusiness Interruption: ${biText(mfl.biM)} (per Table 4, ${occ}, ${ct})`;
 
@@ -451,10 +486,11 @@ const TN=["Site Info","Values","BI","APL","PML","MFL","Summary","High Rise","Rev
 function r0(){
   const oo=Object.keys(MFL_T).map(k=>[k,k]);
   let bhtml=S.buildings.map((b,i)=>{
-    return`<div class="brow" style="grid-template-columns:30px 1.2fr .7fr .7fr .8fr 40px">
+    return`<div class="brow" style="grid-template-columns:30px 1.2fr .55fr .35fr .65fr .8fr 40px">
     <input type="radio" class="pri-radio" name="pri" ${i===S.primaryIdx?'checked':''} onchange="setPrimary(${i})" title="Set as primary fire area">
     <div class="fd" style="margin:0"><input type="text" value="${esc(b.name)}" placeholder="Building ${i+1}" oninput="setBldg(${i},'name',this.value)" onblur="setBldgR(${i},'name',this)"></div>
     <div class="fd" style="margin:0"><input type="number" value="${esc(b.area)}" placeholder="sqft" oninput="setBldg(${i},'area',this.value)" onblur="setBldgR(${i},'area',this)"></div>
+    <div class="fd" style="margin:0"><input type="number" value="${esc(b.floors||'')}" placeholder="#" min="1" title="Number of stories" oninput="setBldg(${i},'floors',this.value)" onblur="setBldgR(${i},'floors',this)"></div>
     <div class="fd" style="margin:0"><select onchange="S.buildings[${i}].construction=this.value;render()"><option value="fr"${b.construction==="fr"?" selected":""}>FR</option><option value="hnc"${b.construction==="hnc"?" selected":""}>HNC</option><option value="lnc"${b.construction==="lnc"?" selected":""}>LNC</option><option value="comb"${b.construction==="comb"?" selected":""}>Comb</option></select></div>
     <div class="fd" style="margin:0"><select onchange="S.buildings[${i}].occupancy=this.value;render()">${oo.map(o=>`<option value="${esc(o[0])}"${(b.occupancy||"Warehousing")===o[0]?' selected':''}>${esc(o[1].length>18?o[1].slice(0,18)+'...':o[1])}</option>`).join('')}</select></div>
     ${S.buildings.length>1?`<button class="brm" onclick="rmBldg(${i})">✕</button>`:'<div></div>'}
@@ -464,7 +500,7 @@ function r0(){
   <div class="g3">${fd("Site Name",inp("siteName","e.g. ABC Manufacturing"))}${fd("Account Number",inp("accountNo",""))}${fd("Survey Date",inp("surveyDate","","date"))}</div></div>
   <div class="cd"><h3 class="ct">Buildings</h3>
   <div class="note">List all buildings on the site. Select the radio button next to the building that will be used as the primary fire area for APL and PML. Additional buildings will be evaluated for MFL separation on the MFL tab.</div>
-  <div style="display:grid;grid-template-columns:30px 1.2fr .7fr .7fr .8fr 40px;gap:6px;margin-bottom:4px;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Fire</div><div>Name</div><div>Area (sqft)</div><div>Const.</div><div>Occupancy</div><div></div></div>
+  <div style="display:grid;grid-template-columns:30px 1.2fr .55fr .35fr .65fr .8fr 40px;gap:6px;margin-bottom:4px;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Fire</div><div>Name</div><div>Area (sqft)</div><div>Floors</div><div>Const.</div><div>Occupancy</div><div></div></div>
   ${bhtml}
   <div class="add-b" onclick="addBldg()">+ Add Building</div>
   <div style="margin-top:10px;font-size:11px;color:var(--muted)">Primary fire area: <strong style="color:var(--accent)">${pb().name||"Building "+(S.primaryIdx+1)}</strong> (${fN(primaryArea())} sqft, ${CL[primaryConst()]||""}) | Total site: ${fN(totalSqft())} sqft</div>
@@ -567,7 +603,7 @@ function r4(){
   <div class="note">Enter the separation distance from the primary building to each adjacent building. Buildings meeting the minimum distance per Table 3a are excluded from the MFL. You can override the auto-distributed value if needed.</div>
   <div style="display:grid;grid-template-columns:1.3fr .7fr .7fr .7fr .8fr;gap:6px;margin-bottom:4px;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Building</div><div>Area</div><div>Sep. (ft)</div><div>Value ($)</div><div>Required</div></div>
   ${sepHtml}</div>`:``}
-  <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">MFL Results</h3><span class="bdg bdg-d">${mfl.hasFW?(mfl.mflA/v.a*100).toFixed(0)+"% of primary":"100% Total Loss"}</span></div>
+  <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">MFL Results</h3><span class="bdg bdg-d">${mfl.hasFW?(mfl.mflA/v.a*100).toFixed(0)+"% of primary | ":""}<span title="Table 5 blended damage percentage of total site PD">${mfl.sitePD>0?Math.round(mfl.pT/mfl.sitePD*100):0}% of Site PD (Table 5)</span></span></div>
   <div class="g3" style="margin-bottom:6px">${vc("Total Site PD",fmt(mfl.sitePD))}${vc("Separated / Excluded","-"+fmt(mfl.exclPD+(mfl.fwReduction||0)),mfl.exclB.length+" bldg(s) + wall","suc")}${vc("Total MFL PD",fmt(mfl.pT),"","dng")}</div>
   <div class="g2">${vc("BI",mfl.biM+" months",v.by>0?fmtF(mfl.bV):"","wrn")}${vc("Total Exposure",fmt(mfl.pT+(mfl.bV||0)),"PD + BI")}</div></div>
   <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">MFL Narrative</h3><button class="bnc" onclick="copyEl('mflTA')">Copy</button></div>
@@ -619,6 +655,7 @@ function rRev(){
   <table style="width:100%;border-collapse:collapse;font-size:12px">
   <thead><tr style="border-bottom:2px solid var(--border)"><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Rev</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Date</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Author</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Status</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Description</th></tr></thead>
   <tbody>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.4</td><td style="padding:8px">03/12/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Applied FP 5020 Table 5 damage percentages to MFL calculation. Previously MFL assumed 100% loss of all at-risk property; now building, equipment, and inventory each receive their occupancy/construction-specific damage factor (e.g., Office/FR = 40%/40%/50%), correctly producing ~40–50% MFL for non-high-rise FR office buildings rather than 100%. Added Floors field to buildings (Site Info tab) enabling per-floor value context in the MFL narrative. Added multi-story fire scenario section to MFL narrative (FP 5020 Page 7): shows per-floor value, fire floor at 100%, smoke floor above at 20% contents, water floor below at 15% contents. PML narrative updated to display actual Table 5 percentages when PML = MFL (previously showed hardcoded 100%). MFL tab badge now shows blended Table 5 percentage of site PD.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.3</td><td style="padding:8px">03/11/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Bug fix: MFL fire wall reduction now correctly uses the primary building's proportional value rather than total site PD, which produced an over-inflated exclusion in multi-building scenarios. Added comprehensive unit test suite (101 tests) covering all helper functions, APL Scenarios A–K (Figures 1A/1B/1C), PML, MFL, Table 1B deficiency logic, high-rise factors, and integration ordering checks (APL ≤ PML ≤ MFL).</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.2</td><td style="padding:8px">03/10/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Buildings-first architecture with multi-building site list and radio selection for primary fire area. Values auto-distribute by sqft with per-building overrides. MFL corrected to start from total site values and subtract adequately separated buildings (previously was adding inadequately separated buildings). Full step-by-step calculations restored in all narratives (APL zone-by-zone math, PML scaled zones with dollar breakdowns, MFL subtraction breakdown). BI supports dollar and percent-of-production modes with mode-aware narrative output. APL BI now includes dollar estimate from Table 1A day ranges. PML narrative references the specific impaired system selected. Sticky footer with live APL/PML/MFL totals. Auto-save to localStorage. Copy All Narratives button. High-rise tab includes occupancy check reminder. GRC branding (#0046AD) with light/dark mode.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--dim)">0.1</td><td style="padding:8px">03/09/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Initial beta release. First trial version presented for internal review. Implements FP 5020 Rev E loss estimate methodology including APL (Table 1A/1B flowcharts, Scenarios A-K), PML (single system failure with proportional zone scaling), and MFL (100% total loss with 4-hr fire wall and multi-building separation per Table 3a). BI calculation, high-rise PML/MFL per Figure 2 / Table 2 with FMDS 1-3 exterior spread analysis (H/h ratio for closed/openable windows). Table 1B sprinkler deficiency engine. Report-ready narrative generation.</td></tr>
