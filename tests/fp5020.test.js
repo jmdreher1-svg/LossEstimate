@@ -88,7 +88,10 @@ function bldgValue(i){
 }
 
 function gv(){
-  const a=primaryArea(),tb=pf(S.totalBldg),te=pf(S.totalEquip),ti=pf(S.totalInv);
+  const a=primaryArea();
+  const siteTb=pf(S.totalBldg),siteTe=pf(S.totalEquip),siteTi=pf(S.totalInv),sitePD=siteTb+siteTe+siteTi;
+  const prop=sitePD>0?bldgValue(S.primaryIdx)/sitePD:1;
+  const tb=siteTb*prop,te=siteTe*prop,ti=siteTi*prop;
   let by=pf(S.biYearly);if(S.biMode==="percent"&&pf(S.annualProd)>0&&pf(S.biPct)>0)by=pf(S.annualProd)*(pf(S.biPct)/100);
   return{a,tb,te,ti,by,bpsf:a>0?tb/a:0,epsf:a>0?te/a:0,ipsf:a>0?ti/a:0,pd:tb+te+ti};
 }
@@ -141,15 +144,18 @@ function calcAPL(){
 
 // MFL calculation
 function calcMFL(){
-  const v=gv(),o=MFL_T[primaryOcc()];if(!o||v.a===0)return{biM:0,pB:0,pE:0,pI:0,pT:0,bV:0,mflA:0,hasFW:false,exclB:[],inclB:[],exclPD:0,sitePD:0,atRiskTotal:0,atRiskBldg:0,atRiskEquip:0,atRiskInv:0,bP:100,eP:100,iP:100};
+  // MFL starts from total site values — use raw state totals, not gv() which is primary-building-only
+  const a=primaryArea(),siteTb=pf(S.totalBldg),siteTe=pf(S.totalEquip),siteTi=pf(S.totalInv);
+  let by=pf(S.biYearly);if(S.biMode==="percent"&&pf(S.annualProd)>0&&pf(S.biPct)>0)by=pf(S.annualProd)*(pf(S.biPct)/100);
+  const o=MFL_T[primaryOcc()];if(!o||a===0)return{biM:0,pB:0,pE:0,pI:0,pT:0,bV:0,mflA:0,hasFW:false,exclB:[],inclB:[],exclPD:0,sitePD:0,atRiskTotal:0,atRiskBldg:0,atRiskEquip:0,atRiskInv:0,bP:100,eP:100,iP:100};
   // Use comb percentages if hasCombConst flag is set (combustible cladding)
   const constKey=(S.hasCombConst&&primaryConst()!=='comb')?'comb':primaryConst();
   const d=o[constKey]||o.comb;
   let hasFW=S.fw4hr&&pf(S.fwArea)>0;
-  let mflA=v.a;if(hasFW)mflA=Math.min(pf(S.fwArea),v.a);
-  const sitePD=v.pd;
+  let mflA=a;if(hasFW)mflA=Math.min(pf(S.fwArea),a);
+  const sitePD=siteTb+siteTe+siteTi;
   let fwReduction=0;
-  if(hasFW){fwReduction=bldgValue(S.primaryIdx)*(1-mflA/v.a);}
+  if(hasFW){fwReduction=bldgValue(S.primaryIdx)*(1-mflA/a);}
   const exclB=[],inclB=[];
   S.buildings.forEach((b,i)=>{if(i===S.primaryIdx)return;
     const req=getSepReq(primaryConst(),b.construction||primaryConst(),S.hazardClass);
@@ -161,15 +167,15 @@ function calcMFL(){
   // Apply Table 5 (MFL_T) damage percentages to at-risk property
   const atRiskTotal=Math.max(sitePD-fwReduction-exclPD,0);
   const atRiskFrac=sitePD>0?atRiskTotal/sitePD:0;
-  const atRiskBldg=rLE(v.tb*atRiskFrac);
-  const atRiskEquip=rLE(v.te*atRiskFrac);
-  const atRiskInv=rLE(v.ti*atRiskFrac);
-  const pB=rLE(v.tb*atRiskFrac*(d.b/100));
-  const pE=rLE(v.te*atRiskFrac*(d.e/100));
-  const pI=rLE(v.ti*atRiskFrac*(d.i/100));
+  const atRiskBldg=rLE(siteTb*atRiskFrac);
+  const atRiskEquip=rLE(siteTe*atRiskFrac);
+  const atRiskInv=rLE(siteTi*atRiskFrac);
+  const pB=rLE(siteTb*atRiskFrac*(d.b/100));
+  const pE=rLE(siteTe*atRiskFrac*(d.e/100));
+  const pI=rLE(siteTi*atRiskFrac*(d.i/100));
   const pT=Math.max(pB+pE+pI,0);
   const biM=d.bi;
-  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(v.by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:d.b,eP:d.e,iP:d.i};
+  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:d.b,eP:d.e,iP:d.i};
 }
 
 // PML calculation
