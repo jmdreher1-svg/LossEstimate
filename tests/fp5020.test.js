@@ -164,7 +164,7 @@ function calcMFL(){
     if(act>=req&&act>0)exclB.push(info);else inclB.push(info);
   });
   let exclPD=0;exclB.forEach(b=>{exclPD+=b.value;});
-  // Apply Table 5 (MFL_T) damage percentages to at-risk property
+  // Apply Table 4 (MFL_T) damage percentages to at-risk property
   const atRiskTotal=Math.max(sitePD-fwReduction-exclPD,0);
   const atRiskFrac=sitePD>0?atRiskTotal/sitePD:0;
   const atRiskBldg=rLE(siteTb*atRiskFrac);
