@@ -58,7 +58,7 @@ function resetS() {
     pmlSystem:"sprinkler_riser", fdTime:"prompt", fdType:"fullypaid", pmlArea:"",
     hasCombConst:false,
     fw4hr:false, fwArea:"",
-    isHighRise:false, stories:"", topFloorBelowFD:true, extSpreadPossible:false,
+    isHighRise:false, stories:"", hrFireFloors:"1", topFloorBelowFD:true, extSpreadPossible:false,
     extType:"none", floorToWindow:"", windowHeight:"",
   };
 }
@@ -194,7 +194,7 @@ function calcPML(){
 }
 
 // High rise helpers
-function hrFF(){if(S.topFloorBelowFD)return 1;if(!S.extSpreadPossible)return 1;return pf(S.stories)>40?3:2}
+function hrFF(){return pf(S.hrFireFloors)||1}
 function hrSF(){const f=hrFF();return f===1?2:f===2?3:4}
 function hrWF(){const f=hrFF();return f===1?2:f===2?5:6}
 
@@ -998,37 +998,32 @@ describe('calcPML() - PML calculation', () => {
 
 // --------------- High Rise helpers ---------------
 describe('High Rise helpers (hrFF, hrSF, hrWF)', () => {
-  test('top floor within FD reach -> 1 fire floor, 2 smoke floors, 2 water floors', () => {
-    S.topFloorBelowFD = true;
+  test('1 fire floor from input -> 2 smoke floors above, 2 water floors below', () => {
+    S.hrFireFloors = '1';
     expect(hrFF()).toBe(1);
     expect(hrSF()).toBe(2);
     expect(hrWF()).toBe(2);
   });
 
-  test('top floor above FD reach, no ext spread -> 1 fire floor', () => {
-    S.topFloorBelowFD = false;
-    S.extSpreadPossible = false;
-    expect(hrFF()).toBe(1);
-    expect(hrSF()).toBe(2);
-    expect(hrWF()).toBe(2);
-  });
-
-  test('ext spread possible, <= 40 stories -> 2 fire floors, 3 smoke, 5 water', () => {
-    S.topFloorBelowFD = false;
-    S.extSpreadPossible = true;
-    S.stories = '30';
+  test('2 fire floors from input -> 3 smoke floors above, 5 water floors below', () => {
+    S.hrFireFloors = '2';
     expect(hrFF()).toBe(2);
     expect(hrSF()).toBe(3);
     expect(hrWF()).toBe(5);
   });
 
-  test('ext spread possible, > 40 stories -> 3 fire floors, 4 smoke, 6 water', () => {
-    S.topFloorBelowFD = false;
-    S.extSpreadPossible = true;
-    S.stories = '50';
+  test('3 fire floors from input -> 4 smoke floors above, 6 water floors below', () => {
+    S.hrFireFloors = '3';
     expect(hrFF()).toBe(3);
     expect(hrSF()).toBe(4);
     expect(hrWF()).toBe(6);
+  });
+
+  test('defaults to 1 fire floor when hrFireFloors is empty', () => {
+    S.hrFireFloors = '';
+    expect(hrFF()).toBe(1);
+    expect(hrSF()).toBe(2);
+    expect(hrWF()).toBe(2);
   });
 });
 
