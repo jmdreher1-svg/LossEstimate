@@ -286,6 +286,7 @@ function genN(){
   const ct=CL[primaryConst()]||"",occ=primaryOcc(),sys=S.sprinklerType==="wet"?"wet pipe":"dry pipe";
   const sysName=SYS_LABELS[S.pmlSystem]||"fire protection system";
   const hr=S.isHighRise;
+  const primaryFloors=pf(pb().floors);
   const hrN=hr?` This is a ${pf(S.stories)}-story high-rise building with the top occupied floor ${S.topFloorBelowFD?"within":"above"} the effective reach of fire department aerial equipment.`:"";
 
   // BI helper: returns appropriate BI text based on mode
@@ -410,6 +411,20 @@ function genN(){
       :"No combustible exterior or openable windows, so no exterior fire spread.";
     p+=`\n\nHigh-Rise PML per Figure 2 and Table 2: ${en} The PML involves ${hrFF()} fire floor(s), smoke damage of 20% to contents on ${hrSF()} floors above, and water damage of 15% to contents on ${hrWF()} floors below.`;
   }
+
+  if(!hr&&primaryFloors>1){
+    const perFloorContents=rLE((v.te+v.ti)/primaryFloors);
+    const smokeAbove=rLE(perFloorContents*0.20);
+    const waterBelow=rLE(perFloorContents*0.15);
+    const pmlTotal=rLE(pml.pT+smokeAbove+waterBelow);
+    p+=`\n\nMulti-Story Building — Adjacent Floor Damage (FP 5020 Page 7):\nThis ${primaryFloors}-story non-high-rise building requires consideration of smoke and water damage on floors adjacent to the fire floor.\n`;
+    p+=`  Contents value per floor: (${fmtF(v.te)} equip + ${fmtF(v.ti)} inv) ÷ ${primaryFloors} floors = ${fmtF(perFloorContents)}/floor\n`;
+    p+=`  Base PML (fire floor):    ${fmtF(pml.pT)}\n`;
+    p+=`  Smoke above (1 floor):   +${fmtF(smokeAbove)} (20% × ${fmtF(perFloorContents)} contents/floor)\n`;
+    p+=`  Water below (1 floor):   +${fmtF(waterBelow)} (15% × ${fmtF(perFloorContents)} contents/floor)\n`;
+    p+=`  ─────────────────────────────\n`;
+    p+=`  Total PML with floors:    ${fmtF(pmlTotal)}`;
+  }
   S.pmlN=p;
 
   // ===== MFL =====
@@ -437,18 +452,6 @@ function genN(){
   if(mfl.fwReduction>0) m+=`\n  Fire Wall Reduction:  -${fmtF(mfl.fwReduction)}`;
   if(mfl.exclPD>0) m+=`\n  Separated Buildings:  -${fmtF(mfl.exclPD)}`;
   if(mfl.fwReduction>0||mfl.exclPD>0){m+=`\n  ─────────────────────────────\n  At-Risk Property:      ${fmtF(mfl.atRiskTotal)}`;}
-
-  // Multi-story scenario description (non-high-rise buildings with >1 floor)
-  const primaryFloors=pf(pb().floors);
-  if(!hr&&primaryFloors>1&&mfl.atRiskTotal>0){
-    const perFloor=rLE(mfl.atRiskTotal/primaryFloors);
-    m+=`\n\nMulti-Story Fire Scenario (${primaryFloors} floors, per FP 5020 Page 7):\nFor a ${primaryFloors}-story non-high-rise building, the MFL assumes fire originating on the floor with the greatest concentration of values. Collateral damage from smoke migration to the floor above and suppression water to the floor below is also expected.\n`;
-    m+=`  At-risk value per floor: ${fmtF(mfl.atRiskTotal)} ÷ ${primaryFloors} floors = ${fmtF(perFloor)}/floor\n`;
-    m+=`  Fire floor:  1 floor × ${fmtF(perFloor)} — 100% structural and contents damage\n`;
-    m+=`  Smoke above: 1 floor × ${fmtF(perFloor)} — 20% contents damage (heat/smoke)\n`;
-    m+=`  Water below: 1 floor × ${fmtF(perFloor)} — 15% contents damage (suppression water)\n`;
-    m+=`The effective overall damage percentages per Table 5 account for this multi-floor impact.\n`;
-  }
 
   m+=`\n\nTable 5 Damage Percentages (${occ}, ${ct}):\n`;
   m+=`  Building structure: ${mfl.bP}%\n`;
