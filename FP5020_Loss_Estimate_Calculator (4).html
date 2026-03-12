@@ -124,7 +124,7 @@ const S={
   // MFL
   fw4hr:false,fwArea:"",
   // High rise
-  isHighRise:false,stories:"",topFloorBelowFD:true,extSpreadPossible:false,extType:"none",floorToWindow:"",windowHeight:"",
+  isHighRise:false,stories:"",hrFireFloors:"1",topFloorBelowFD:true,extSpreadPossible:false,extType:"none",floorToWindow:"",windowHeight:"",
 };
 loadState();
 
@@ -202,6 +202,7 @@ function calcAPL(){
   const v=gv(),pctV=pf(S.designPct),isAdq=S.sprinklerAdequate==="adequate",noSprk=S.sprinklerAdequate==="none",is80=pctV>=80,isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";
   let sc=null,eq=false,R=[];const hasDef=countBold()>0;
   if(noSprk){eq=true;R.push("No sprinkler protection, so APL = PML");}
+  else if(S.isHighRise&&S.extType==="combustible"){eq=true;R.push("High-rise with combustible exterior cladding: exterior fire spread expected, APL = PML");}
   else if(S.isStorage){R.push("Storage occupancy (Figure 1A)");if(isAdq&&!hasDef){R.push("Sprinkler system reliable and fully adequate");if(S.hasFL){sc="G";R.push("Significant FL/CL present, Scenario G");}else if(S.isSensitive){sc=S.protType==="esfr"?"I":S.protType==="cmsa"?"K":"D";R.push("Sensitive + "+S.protType.toUpperCase()+", Scenario "+sc);}else{sc=S.protType==="esfr"?"H":S.protType==="cmsa"?"J":"C";R.push("Non-sensitive + "+S.protType.toUpperCase()+", Scenario "+sc);}}else{R.push(isAdq?"Adequate but deficiencies identified":"Not fully adequate");if(S.hasFL){eq=true;R.push("FL/CL with deficient system, APL = PML");}else if(!is80&&!isAdq){eq=true;R.push("Less than 80% of design, APL = PML");}else if(!S.alarmsOk&&!isAdq){eq=true;R.push("Alarms/FD/PEO inadequate, APL = PML");}else if(hasDef){const t=getT1B();R.push(t.rsn);if(t.eq)eq=true;else if(t.sc)sc=t.sc;else sc="G";}else{sc="G";R.push("At least 80% design, Scenario G");}}}
   else{R.push("Non-storage (Figure "+(S.isSensitive?"1C":"1B")+")");if(isAdq&&!hasDef){R.push("Sprinkler system reliable and fully adequate");if(S.isSensitive){sc=isLO?"B":S.hasFL?"F":"D";}else{sc=isLO?"A":S.hasFL?"E":"C";}R.push("Scenario "+sc);}else{R.push(isAdq?"Adequate but deficiencies":"Not fully adequate");if(!is80&&!isAdq){eq=true;R.push("Less than 80% of design, APL = PML");}else if(S.hasFL){eq=true;R.push("FL/CL present, APL = PML");}else if(!S.alarmsOk&&!isAdq){eq=true;R.push("Alarms/FD/PEO inadequate, APL = PML");}else if(hasDef){const t=getT1B();R.push(t.rsn);if(t.eq)eq=true;else if(t.sc)sc=t.sc;else sc=S.isSensitive?"F":"E";}else{sc=S.isSensitive?"F":"E";R.push("Scenario "+sc);}}}
   let pB=0,pE=0,pI=0,bi="";
@@ -276,7 +277,7 @@ function calcPML(){
 }
 
 // High rise helpers
-function hrFF(){if(S.topFloorBelowFD)return 1;if(!S.extSpreadPossible)return 1;return pf(S.stories)>40?3:2}
+function hrFF(){return pf(S.hrFireFloors)||1}
 function hrSF(){const f=hrFF();return f===1?2:f===2?3:4}
 function hrWF(){const f=hrFF();return f===1?2:f===2?5:6}
 
@@ -355,6 +356,14 @@ function genN(){
     }
     a+=`Business Interruption: ${apl.bi}${aplBiDollar} (per Table 1A, Scenario ${apl.sc})`;
   }
+  if(!hr&&primaryFloors>1){
+    a+=`\n\nMulti-Story Building Note (FP 5020 Page 7):\nFor this ${primaryFloors}-story non-high-rise building, water damage should be considered on 2–3 floors directly below the sprinkler operating area, with each lower floor sustaining a lesser degree of damage. The same applies to smoke damage on 2–3 floors above the sprinkler operating area. The fire, water, and smoke zone areas in the APL calculation above represent the primary floor impact; supplemental adjacent-floor effects should be evaluated based on floor layout and separation.`;
+  }
+  if(hr){
+    a+=`\n\nHigh-Rise Multi-Story Note (FP 5020 Page 7):\nSmoke and water damage in high-rise structures can extend 2–3 floors above and below the sprinkler operating area, each with a lesser degree of damage. This is especially significant in high-rise scenarios due to vertical propagation through stairwells, mechanical shafts, and open penetrations.`;
+    if(S.extType==="combustible"){a+=` This building has combustible exterior cladding (EIFS / IMP / ACM). With exterior fire spread expected, APL = PML for this facility.`;}
+    else{a+=` Where significant sprinkler issues or significant external fire exposure are present in a high-rise, APL = PML.`;}
+  }
   S.aplN=a;
 
   // ===== PML =====
@@ -409,7 +418,21 @@ function genN(){
     const en=S.extType==="combustible"?"Combustible exterior cladding is present, so exterior fire spread is assumed."
       :S.extType!=="none"&&Hv>0&&hv>0?`The H/h ratio is ${rat.toFixed(2)} (${S.extType==="closed"?"2.8 required for closed windows":"3.8 required for openable windows"}). Exterior spread is ${S.extSpreadPossible?"possible":"not expected"}.`
       :"No combustible exterior or openable windows, so no exterior fire spread.";
-    p+=`\n\nHigh-Rise PML per Figure 2 and Table 2: ${en} The PML involves ${hrFF()} fire floor(s), smoke damage of 20% to contents on ${hrSF()} floors above, and water damage of 15% to contents on ${hrWF()} floors below.`;
+    const ff=hrFF(),sf=hrSF(),wf=hrWF();
+    const nFloors=pf(S.stories)||1;
+    const perFloorAvg=rLE((v.tb+v.te+v.ti)/nFloors);
+    const perFloorContHR=rLE((v.te+v.ti)/nFloors);
+    const hrFireDmg=rLE(ff*perFloorAvg);
+    const hrSmokeDmg=rLE(sf*perFloorContHR*0.20);
+    const hrWaterDmg=rLE(wf*perFloorContHR*0.15);
+    p+=`\n\nHigh-Rise PML per Figure 2 and Table 2: ${en}\n`;
+    p+=`Fire Floors Involved (Table 2): ${ff} floor(s) — 100% of average structure and contents value per floor\n`;
+    p+=`  Average structure + contents per floor: ${fmtF(perFloorAvg)} (${fmtF(v.tb+v.te+v.ti)} total ÷ ${nFloors} floors)\n`;
+    p+=`  Fire damage:  ${ff} floor(s) × ${fmtF(perFloorAvg)} × 100% = ${fmtF(hrFireDmg)}\n`;
+    p+=`  Smoke above: ${sf} floor(s) × ${fmtF(perFloorContHR)} contents/floor × 20% = ${fmtF(hrSmokeDmg)}\n`;
+    p+=`  Water below: ${wf} floor(s) × ${fmtF(perFloorContHR)} contents/floor × 15% = ${fmtF(hrWaterDmg)}\n`;
+    p+=`  ─────────────────────────────\n`;
+    p+=`  Total High-Rise PML: ${fmtF(rLE(hrFireDmg+hrSmokeDmg+hrWaterDmg))}`;
   }
 
   if(!hr&&primaryFloors>1){
@@ -647,7 +670,8 @@ function r6(){
   ${extR?`<div class="${S.extSpreadPossible?'sep-bad':'sep-ok'}" style="margin-top:8px">${S.extSpreadPossible?'✗':'✓'} ${extR}</div>`:''}
   </div>
   <div class="cd"><h3 class="ct">PML, High Rise (Figure 2 / Table 2)</h3>
-  <div style="font-size:12px;line-height:1.7">Fire Floors: <strong>${hrFF()}</strong> | Smoke: 20% to <strong>${hrSF()}</strong> floors above | Water: 15% to <strong>${hrWF()}</strong> floors below</div></div>
+  ${fd("Fire Floors Involved (Table 2)",sel("hrFireFloors",[["1","1 — Smoke to 2 floors above, Water to 2 floors below"],["2","2 — Smoke to 3 floors above, Water to 5 floors below"],["3","3 — Smoke to 4 floors above, Water to 6 floors below"]]))}
+  <div style="font-size:12px;line-height:1.7;margin-top:6px">Fire Floors: <strong>${hrFF()}</strong> | Smoke: 20% to <strong>${hrSF()}</strong> floors above | Water: 15% to <strong>${hrWF()}</strong> floors below</div></div>
   <div class="cd"><h3 class="ct">MFL, High Rise</h3>
   <div style="font-size:12px;line-height:1.7">${!S.extSpreadPossible?"No exterior spread. Fire on floor below greatest value, progresses 1 floor up. 2 fire floors at 100%. Smoke 20% to 4 floors above, water 15% to 6 floors below. BI 9 to 12 months.":"Exterior spread possible. Fire from ground floor to fire-stop or top of building. 100% damage all involved floors. Smoke 20% to 6 floors above, water 15% to 10 floors below. BI 18 to 24 months."}</div></div>
   `:''}`;
@@ -658,6 +682,7 @@ function rRev(){
   <table style="width:100%;border-collapse:collapse;font-size:12px">
   <thead><tr style="border-bottom:2px solid var(--border)"><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Rev</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Date</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Author</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Status</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Description</th></tr></thead>
   <tbody>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.5</td><td style="padding:8px">03/12/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">PML High Rise: replaced auto-calculated fire floors with explicit "Fire Floors Involved" select on High Rise tab (1, 2, or 3 per Table 2). PML high-rise narrative now shows full Table 2 per-floor breakdown: fire damage (ff floors × avg per floor × 100%), smoke above (sf floors × contents/floor × 20%), water below (wf floors × contents/floor × 15%), and combined total. APL multi-story note added to narrative for non-high-rise buildings with floors > 1 (FP 5020 Page 7: water on 2–3 floors below, smoke on 2–3 floors above). High-rise APL narrative note added for all high-rise buildings; APL auto-set to PML when high-rise has combustible exterior cladding (EIFS/IMP/ACM) per FP 5020 Page 7. Multi-story smoke/water narrative moved from MFL to PML (MFL uses Table 5 percentages which already account for multi-floor impact).</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.4</td><td style="padding:8px">03/12/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Applied FP 5020 Table 5 damage percentages to MFL calculation. Previously MFL assumed 100% loss of all at-risk property; now building, equipment, and inventory each receive their occupancy/construction-specific damage factor (e.g., Office/FR = 40%/40%/50%), correctly producing ~40–50% MFL for non-high-rise FR office buildings rather than 100%. Added Floors field to buildings (Site Info tab) enabling per-floor value context in the MFL narrative. Added multi-story fire scenario section to MFL narrative (FP 5020 Page 7): shows per-floor value, fire floor at 100%, smoke floor above at 20% contents, water floor below at 15% contents. PML narrative updated to display actual Table 5 percentages when PML = MFL (previously showed hardcoded 100%). MFL tab badge now shows blended Table 5 percentage of site PD.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.3</td><td style="padding:8px">03/11/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Bug fix: MFL fire wall reduction now correctly uses the primary building's proportional value rather than total site PD, which produced an over-inflated exclusion in multi-building scenarios. Added comprehensive unit test suite (101 tests) covering all helper functions, APL Scenarios A–K (Figures 1A/1B/1C), PML, MFL, Table 1B deficiency logic, high-rise factors, and integration ordering checks (APL ≤ PML ≤ MFL).</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.2</td><td style="padding:8px">03/10/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Buildings-first architecture with multi-building site list and radio selection for primary fire area. Values auto-distribute by sqft with per-building overrides. MFL corrected to start from total site values and subtract adequately separated buildings (previously was adding inadequately separated buildings). Full step-by-step calculations restored in all narratives (APL zone-by-zone math, PML scaled zones with dollar breakdowns, MFL subtraction breakdown). BI supports dollar and percent-of-production modes with mode-aware narrative output. APL BI now includes dollar estimate from Table 1A day ranges. PML narrative references the specific impaired system selected. Sticky footer with live APL/PML/MFL totals. Auto-save to localStorage. Copy All Narratives button. High-rise tab includes occupancy check reminder. GRC branding (#0046AD) with light/dark mode.</td></tr>
