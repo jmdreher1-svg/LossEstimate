@@ -46,7 +46,7 @@ let S;
 function resetS() {
   S = {
     tab:0, siteName:"", accountNo:"", surveyDate:"",
-    buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:""}],
+    buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:""}],
     primaryIdx:0,
     hazardClass:"ordinary", isStorage:true, isSensitive:false,
     sprinklerType:"wet", sprinklerAdequate:"adequate", designPct:"100",
@@ -141,13 +141,15 @@ function calcAPL(){
 
 // MFL calculation
 function calcMFL(){
-  const v=gv(),o=MFL_T[primaryOcc()];if(!o||v.a===0)return{biM:0,pB:0,pE:0,pI:0,pT:0,bV:0,mflA:0,hasFW:false,exclB:[],inclB:[],exclPD:0,sitePD:0};
-  const d=o[primaryConst()]||o.comb;
+  const v=gv(),o=MFL_T[primaryOcc()];if(!o||v.a===0)return{biM:0,pB:0,pE:0,pI:0,pT:0,bV:0,mflA:0,hasFW:false,exclB:[],inclB:[],exclPD:0,sitePD:0,atRiskTotal:0,atRiskBldg:0,atRiskEquip:0,atRiskInv:0,bP:100,eP:100,iP:100};
+  // Use comb percentages if hasCombConst flag is set (combustible cladding)
+  const constKey=(S.hasCombConst&&primaryConst()!=='comb')?'comb':primaryConst();
+  const d=o[constKey]||o.comb;
   let hasFW=S.fw4hr&&pf(S.fwArea)>0;
   let mflA=v.a;if(hasFW)mflA=Math.min(pf(S.fwArea),v.a);
   const sitePD=v.pd;
   let fwReduction=0;
-  if(hasFW){fwReduction=bldgValue(S.primaryIdx)*(1-mflA/v.a);}  // FIXED: was v.pd*(1-mflA/v.a)
+  if(hasFW){fwReduction=bldgValue(S.primaryIdx)*(1-mflA/v.a);}
   const exclB=[],inclB=[];
   S.buildings.forEach((b,i)=>{if(i===S.primaryIdx)return;
     const req=getSepReq(primaryConst(),b.construction||primaryConst(),S.hazardClass);
@@ -156,9 +158,18 @@ function calcMFL(){
     if(act>=req&&act>0)exclB.push(info);else inclB.push(info);
   });
   let exclPD=0;exclB.forEach(b=>{exclPD+=b.value;});
-  const totalMFL=rLE(sitePD-fwReduction-exclPD);
+  // Apply Table 5 (MFL_T) damage percentages to at-risk property
+  const atRiskTotal=Math.max(sitePD-fwReduction-exclPD,0);
+  const atRiskFrac=sitePD>0?atRiskTotal/sitePD:0;
+  const atRiskBldg=rLE(v.tb*atRiskFrac);
+  const atRiskEquip=rLE(v.te*atRiskFrac);
+  const atRiskInv=rLE(v.ti*atRiskFrac);
+  const pB=rLE(v.tb*atRiskFrac*(d.b/100));
+  const pE=rLE(v.te*atRiskFrac*(d.e/100));
+  const pI=rLE(v.ti*atRiskFrac*(d.i/100));
+  const pT=Math.max(pB+pE+pI,0);
   const biM=d.bi;
-  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT:Math.max(totalMFL,0),bV:rLE(v.by/12*biM),mflA,hasFW,exclB,inclB};
+  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(v.by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:d.b,eP:d.e,iP:d.i};
 }
 
 // PML calculation
@@ -166,7 +177,7 @@ function calcPML(){
   const v=gv(),mfl=calcMFL(),apl=calcAPL();
   if(S.fdTime==="delayed"||primaryConst()==="comb"||S.hasCombConst){
     const rsn=S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":"Combustible construction, so PML = MFL";
-    return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,bP:100,eP:100,iP:100,zones:[],pB:rLE(v.tb),pE:rLE(v.te),pI:rLE(v.ti)};}
+    return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   const o=MFL_T[primaryOcc()];if(!o||v.a===0)return{pB:0,pE:0,pI:0,pT:0,biM:0,eq:false,zones:[]};
   const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||1500;
   let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
@@ -781,11 +792,20 @@ describe('calcMFL() - MFL calculation', () => {
     expect(r.sitePD).toBe(0);
   });
 
-  test('single building, no separation, no fire wall -> pT = sitePD', () => {
-    setupMFL();
+  test('single building, no separation, no fire wall - applies Table 5 percentages', () => {
+    setupMFL(); // Warehousing HNC: bldg=10M, equip=5M, inv=2M
     const r = calcMFL();
     expect(r.sitePD).toBe(17000000);
-    expect(r.pT).toBe(r.sitePD);
+    // Table 5: Warehousing HNC = b:80, e:90, i:90 -> pT < sitePD
+    expect(r.bP).toBe(80);
+    expect(r.eP).toBe(90);
+    expect(r.iP).toBe(90);
+    expect(r.pB).toBe(rLE(10000000 * 0.80)); // 8,000,000
+    expect(r.pE).toBe(rLE(5000000 * 0.90));  // 4,500,000
+    expect(r.pI).toBe(rLE(2000000 * 0.90));  // 1,800,000
+    expect(r.pT).toBe(r.pB + r.pE + r.pI);
+    expect(r.pT).toBeLessThan(r.sitePD);
+    expect(r.atRiskTotal).toBe(r.sitePD); // nothing excluded
     expect(r.hasFW).toBe(false);
     expect(r.exclB.length).toBe(0);
   });
@@ -814,8 +834,8 @@ describe('calcMFL() - MFL calculation', () => {
 
   test('adjacent building with adequate separation is excluded from MFL', () => {
     S.buildings = [
-      {name:'Primary', area:'100000', construction:'hnc', occupancy:'Warehousing', value:'', separation:''},
-      {name:'Warehouse 2', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'100'},
+      {name:'Primary', area:'100000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:''},
+      {name:'Warehouse 2', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'100', floors:''},
     ];
     S.primaryIdx = 0;
     S.totalBldg = '15000000';
@@ -832,8 +852,8 @@ describe('calcMFL() - MFL calculation', () => {
 
   test('adjacent building with inadequate separation is included in MFL', () => {
     S.buildings = [
-      {name:'Primary', area:'100000', construction:'hnc', occupancy:'Warehousing', value:'', separation:''},
-      {name:'Warehouse 2', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'20'},
+      {name:'Primary', area:'100000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:''},
+      {name:'Warehouse 2', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'20', floors:''},
     ];
     S.primaryIdx = 0;
     S.totalBldg = '15000000';
@@ -844,14 +864,17 @@ describe('calcMFL() - MFL calculation', () => {
     const r = calcMFL();
     expect(r.inclB.length).toBe(1);
     expect(r.exclB.length).toBe(0);
-    expect(r.pT).toBe(r.sitePD); // nothing excluded
+    // Nothing excluded from at-risk pool, but Table 5 applies (HNC Warehousing b=80)
+    expect(r.atRiskTotal).toBe(r.sitePD);
+    expect(r.pT).toBeLessThan(r.sitePD); // Table 5 reduces from 100%
+    expect(r.pT).toBeGreaterThan(0);
   });
 
   test('fire wall reduction uses primary building value, not total site value', () => {
     // Multi-building: primary = 100k sqft, secondary = 100k sqft, equal areas
     S.buildings = [
-      {name:'Primary', area:'100000', construction:'hnc', occupancy:'Warehousing', value:'', separation:''},
-      {name:'Secondary', area:'100000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'20'},
+      {name:'Primary', area:'100000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:''},
+      {name:'Secondary', area:'100000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'20', floors:''},
     ];
     S.primaryIdx = 0;
     S.totalBldg = '10000000';
