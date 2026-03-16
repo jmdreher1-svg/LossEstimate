@@ -416,7 +416,8 @@ function genN(){
     p+=`  Inventory/WIP: ${fmtF(pml.pI)}\n`;
     p+=`  ─────────────────────────────\n`;
     p+=`  Total PML PD:  ${fmtF(pml.pT)}${pml.aplFloor?" (adjusted up to APL floor)":""}\n\n`;
-    p+=`Business Interruption: ${biText(pml.biM)} (per Table 4)`;
+    const aplBiMin=apl.bi?` Minimum APL BI duration is ${apl.bi} (Scenario ${apl.sc}).`:"";
+    p+=`Business Interruption: ${biText(pml.biM)}\nNote: FP 5020 provides no specific BI duration guidance for PML. Duration is engineering discretion and should be no less than the APL BI duration.${aplBiMin}`;
   }
 
   if(hr){
@@ -592,7 +593,7 @@ function r2(){
 }
 
 function r3(){
-  const pml=calcPML(),v=gv(),dA=pf(S.designArea)||1500,calcA=Math.min(Math.round(dA*1.5),v.a||Infinity),usedA=pf(S.pmlArea)>0?Math.min(pf(S.pmlArea),v.a||Infinity):calcA;
+  const pml=calcPML(),apl=calcAPL(),v=gv(),dA=pf(S.designArea)||1500,calcA=Math.min(Math.round(dA*1.5),v.a||Infinity),usedA=pf(S.pmlArea)>0?Math.min(pf(S.pmlArea),v.a||Infinity):calcA;
   return`<div class="cd"><h3 class="ct">PML Configuration</h3>
   <div class="note">The PML fire area represents the area that would burn before the fire department or physical barriers contain the fire, given the single system failure. With no sprinkler containment, the fire grows to the full sprinkler zone area plus additional spread before response.</div>
   <div class="g2">${fd("Single System Failure",sel("pmlSystem",[["sprinkler_riser","Sprinkler Riser / Control Valve"],["fire_pump","Fire Pump"],["detection","Detection / Alarm System"],["clean_agent","Clean Agent System"],["foam_system","Foam System"],["deluge","Deluge System"],["other","Other"]]))}
@@ -605,7 +606,8 @@ function r3(){
   <div class="tgr">${tog("Combustible Construction/Cladding","hasCombConst")}</div></div>
   <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">PML Results</h3>${pml.eq?'<span class="bdg bdg-d">PML = MFL</span>':''}${pml.aplFloor?'<span class="bdg bdg-w" style="margin-left:4px">PML >= APL</span>':''}</div>
   <div class="g3" style="margin-bottom:6px">${vc("Building",fmt(pml.pB))}${vc("Equipment",fmt(pml.pE))}${vc("Inv/WIP",fmt(pml.pI))}</div>
-  <div class="g2">${vc("Total PML PD",fmt(pml.pT),"","dng")}${vc("BI",pml.biM+" months",v.by>0?fmtF(pml.bV):"","wrn")}</div></div>
+  <div class="g2">${vc("Total PML PD",fmt(pml.pT),"","dng")}${vc("BI",pml.biM+" months",v.by>0?fmtF(pml.bV):"","wrn")}</div>
+  <div class="note" style="margin-top:4px">BI duration is engineering discretion — FP 5020 provides no PML-specific guidance. Duration should be no less than the APL BI${apl.bi?` (${apl.bi}, Scenario ${apl.sc})`:""}.${!pml.eq?" The value shown is drawn from Table 4 as a starting point only.":""}</div></div>
   <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">PML Narrative</h3><button class="bnc" onclick="copyEl('pmlTA')">Copy</button></div>
   ${fd("",`<textarea id="pmlTA" oninput="su('pmlN',this.value)" onblur="ib('pmlN',this)">${esc(S.pmlN)}</textarea>`)}</div>`;
 }
