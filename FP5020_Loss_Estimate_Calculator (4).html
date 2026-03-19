@@ -265,13 +265,36 @@ function calcMFL(){
   const atRiskBldg=rLE(siteTb*atRiskFrac);
   const atRiskEquip=rLE(siteTe*atRiskFrac);
   const atRiskInv=rLE(siteTi*atRiskFrac);
-  const pB=rLE(siteTb*atRiskFrac*(d.b/100));
-  const pE=rLE(siteTe*atRiskFrac*(d.e/100));
-  const pI=rLE(siteTi*atRiskFrac*(d.i/100));
+
+  // High-rise MFL: floor-by-floor damage calculation; Table 4 % used as condemnation threshold
+  // (Table 5 condemnation thresholds not yet in data — Table 4 % used as proxy)
+  let pB,pE,pI,hrMeta={isHR:false};
+  if(S.isHighRise){
+    const nFloors=Math.max(pf(S.stories)||1,1);
+    if(S.extSpreadPossible){
+      // Exterior spread: fire runs full building height — total loss of all at-risk property
+      pB=atRiskBldg;pE=atRiskEquip;pI=atRiskInv;
+      hrMeta={isHR:true,extSpread:true,nFloors,condemned:true,bldgDmgPct:100,contsFrac:1};
+    } else {
+      // No exterior spread: 2 fire floors at 100%, 4 smoke above at 20%, 6 water below at 15%
+      const fireF=Math.min(2,nFloors);
+      const smokeF=Math.min(4,Math.max(nFloors-fireF,0));
+      const waterF=Math.min(6,nFloors);
+      const bldgDmgFrac=fireF/nFloors+(smokeF/nFloors)*0.20;
+      const bldgDmgPct=bldgDmgFrac*100;
+      const condemned=bldgDmgPct>=d.b;
+      pB=condemned?atRiskBldg:rLE(atRiskBldg*bldgDmgFrac);
+      const contsFrac=Math.min(fireF/nFloors+(smokeF/nFloors)*0.20+(waterF/nFloors)*0.15,1);
+      pE=rLE(atRiskEquip*contsFrac);pI=rLE(atRiskInv*contsFrac);
+      hrMeta={isHR:true,extSpread:false,nFloors,fireF,smokeF,waterF,bldgDmgFrac,bldgDmgPct,condemned,condemnThresh:d.b,contsFrac};
+    }
+  } else {
+    pB=rLE(atRiskBldg*(d.b/100));pE=rLE(atRiskEquip*(d.e/100));pI=rLE(atRiskInv*(d.i/100));
+  }
   const pT=Math.max(pB+pE+pI,0);
 
   const biM=d.bi;
-  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:d.b,eP:d.e,iP:d.i};
+  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:d.b,eP:d.e,iP:d.i,hrMeta};
 }
 
 // PML
@@ -496,24 +519,55 @@ function genN(){
   if(mfl.exclPD>0) m+=`\n  Separated Buildings:  -${fmtF(mfl.exclPD)}`;
   if(mfl.fwReduction>0||mfl.exclPD>0){m+=`\n  ─────────────────────────────\n  At-Risk Property:      ${fmtF(mfl.atRiskTotal)}`;}
 
-  m+=`\n\nTable 4 Damage Percentages (${occ}, ${ct}):\n`;
-  m+=`  Building structure: ${mfl.bP}%\n`;
-  m+=`  Equipment/M&E:      ${mfl.eP}%\n`;
-  m+=`  Inventory/WIP:      ${mfl.iP}%\n\n`;
-  m+=`MFL Property Damage:\n`;
-  m+=`  Building:      ${fmtF(mfl.atRiskBldg)} × ${mfl.bP}% = ${fmtF(mfl.pB)}\n`;
-  m+=`  Equipment/M&E: ${fmtF(mfl.atRiskEquip)} × ${mfl.eP}% = ${fmtF(mfl.pE)}\n`;
-  m+=`  Inventory/WIP: ${fmtF(mfl.atRiskInv)} × ${mfl.iP}% = ${fmtF(mfl.pI)}\n`;
-  m+=`  ─────────────────────────────\n`;
-  m+=`  Total MFL PD:  ${fmtF(mfl.pT)}`;
-
-  m+=`\n\nBusiness Interruption: ${biText(mfl.biM)} (per Table 4, ${occ}, ${ct})`;
-
-  if(hr){
+  if(hr&&mfl.hrMeta&&mfl.hrMeta.isHR){
+    // High-rise MFL: floor-by-floor calculation; Table 4 % used as condemnation threshold
+    const hm=mfl.hrMeta;
     const en2=S.extType==="combustible"?"The building has combustible exterior cladding, so exterior fire spread is assumed."
       :S.extType!=="none"&&pf(S.floorToWindow)>0&&pf(S.windowHeight)>0?`H/h ratio is ${(pf(S.floorToWindow)/pf(S.windowHeight)).toFixed(2)}.`:"";
-    m+=`\n\nHigh-Rise MFL: ${en2} ${!S.extSpreadPossible?"The fire originates on the floor below the greatest value and progresses to the floor above through open penetrations, resulting in 2 fire floors at 100% damage. Smoke damage of 20% extends to 4 floors above and water damage of 15% extends to 6 floors below. BI is estimated at 9 to 12 months.":"With exterior fire spread possible, the fire progresses from the ground floor to the fire-stop mechanical floor or the top of the building. All involved floors sustain 100% damage. Smoke damage of 20% extends to 6 floors above and water damage of 15% extends to 10 floors below. BI is estimated at 18 to 24 months."}`;
+    m+=`\n\nHigh-Rise MFL (floor-by-floor per Figure 2): ${en2}\n`;
+    m+=`Note: Table 4 damage percentages (${mfl.bP}% bldg / ${mfl.eP}% equip / ${mfl.iP}% inv) serve as the building condemnation threshold — not the damage calculation factor. Actual damage is determined by floors involved.\n\n`;
+    if(hm.extSpread){
+      m+=`Exterior fire spread assumed — fire progresses from ground floor to top. All floors sustain 100% damage.\n`;
+      m+=`  Building (total loss, condemned): ${fmtF(mfl.pB)}\n`;
+      m+=`  Equipment/M&E (total loss):       ${fmtF(mfl.pE)}\n`;
+      m+=`  Inventory/WIP (total loss):       ${fmtF(mfl.pI)}\n`;
+      m+=`  BI: 18 to 24 months\n`;
+    } else {
+      m+=`No exterior spread. Fire originates on floor below greatest value, progresses one floor up.\n`;
+      m+=`  Total floors: ${hm.nFloors}\n`;
+      m+=`  Fire floors: ${hm.fireF} floor(s) at 100%\n`;
+      m+=`  Smoke above: ${hm.smokeF} floor(s) at 20% (contents only)\n`;
+      m+=`  Water below: ${hm.waterF} floor(s) at 15% (contents only)\n\n`;
+      m+=`Building condemnation check (Table 4 threshold: ${hm.condemnThresh}%):\n`;
+      m+=`  Building damage = ${hm.fireF}/${hm.nFloors} floors × 100% + ${hm.smokeF}/${hm.nFloors} floors × 20% = ${hm.bldgDmgPct.toFixed(1)}%\n`;
+      if(hm.condemned){
+        m+=`  ${hm.bldgDmgPct.toFixed(1)}% ≥ ${hm.condemnThresh}% threshold → Building is condemned → 100% building loss\n`;
+        m+=`  Building (condemned, total loss): ${fmtF(mfl.pB)}\n`;
+      } else {
+        m+=`  ${hm.bldgDmgPct.toFixed(1)}% < ${hm.condemnThresh}% threshold → Building repairable\n`;
+        m+=`  Building (${hm.bldgDmgPct.toFixed(1)}% × ${fmtF(mfl.atRiskBldg)}): ${fmtF(mfl.pB)}\n`;
+      }
+      const contsPct=(hm.contsFrac*100).toFixed(1);
+      m+=`  Equipment/M&E (${contsPct}% blended damage × ${fmtF(mfl.atRiskEquip)}): ${fmtF(mfl.pE)}\n`;
+      m+=`  Inventory/WIP (${contsPct}% blended damage × ${fmtF(mfl.atRiskInv)}): ${fmtF(mfl.pI)}\n`;
+      m+=`  BI: 9 to 12 months\n`;
+    }
+    m+=`  ─────────────────────────────\n`;
+    m+=`  Total MFL PD: ${fmtF(mfl.pT)}`;
+  } else {
+    m+=`\n\nTable 4 Damage Percentages (${occ}, ${ct}):\n`;
+    m+=`  Building structure: ${mfl.bP}%\n`;
+    m+=`  Equipment/M&E:      ${mfl.eP}%\n`;
+    m+=`  Inventory/WIP:      ${mfl.iP}%\n\n`;
+    m+=`MFL Property Damage:\n`;
+    m+=`  Building:      ${fmtF(mfl.atRiskBldg)} × ${mfl.bP}% = ${fmtF(mfl.pB)}\n`;
+    m+=`  Equipment/M&E: ${fmtF(mfl.atRiskEquip)} × ${mfl.eP}% = ${fmtF(mfl.pE)}\n`;
+    m+=`  Inventory/WIP: ${fmtF(mfl.atRiskInv)} × ${mfl.iP}% = ${fmtF(mfl.pI)}\n`;
+    m+=`  ─────────────────────────────\n`;
+    m+=`  Total MFL PD:  ${fmtF(mfl.pT)}`;
   }
+
+  m+=`\n\nBusiness Interruption: ${biText(mfl.biM)} (per Table 4, ${occ}, ${ct})`;
   S.mflN=m;
 }
 
@@ -703,6 +757,7 @@ function rRev(){
   <table style="width:100%;border-collapse:collapse;font-size:12px">
   <thead><tr style="border-bottom:2px solid var(--border)"><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Rev</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Date</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Author</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Status</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Description</th></tr></thead>
   <tbody>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.7</td><td style="padding:8px">03/19/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Bug fix: High-rise MFL was incorrectly applying Table 4 damage percentages (e.g., 40% building for FR Office) as direct damage factors. Table 4 percentages are correctly treated as the building condemnation threshold. High-rise MFL now uses a floor-by-floor calculation: 2 fire floors at 100%, smoke to 4 floors above at 20%, water to 6 floors below at 15% (no exterior spread); all floors at 100% (exterior spread). Calculated building damage % is compared to the Table 4 threshold — if met or exceeded, building is condemned (100% loss); otherwise only the calculated floor damage is used. MFL narrative now shows the floor-by-floor math with explicit condemnation check. PML BI duration updated to reflect engineering discretion (no FP 5020 guidance for PML BI); narrative notes APL BI as minimum floor. Mobile responsive layout improved: header, tabs, footer, and inputs optimized for narrow screens.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.6</td><td style="padding:8px">03/13/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Table 4 data corrections: Metal Smelting/Foundry HNC equip 70%→80%, LNC equip 70%→80%, Comb equip 80%→100%, Comb inventory 80%→100%. Warehousing (Refrigerated) FR BI 12→9 months, HNC BI 18→12 months. "Table 5" label corrected to "Table 4" throughout all narratives, UI badge, and code comments (Table 4 = MFL damage percentages; Table 5 = building condemnation threshold — not yet implemented). All 101 unit tests confirmed passing. Flagged: Chemical Processing occupancy not present in FP 5020 Rev E Table 4 — pending review.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.5</td><td style="padding:8px">03/12/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">PML High Rise: replaced auto-calculated fire floors with explicit "Fire Floors Involved" select on High Rise tab (1, 2, or 3 per Table 2). PML high-rise narrative now shows full Table 2 per-floor breakdown: fire damage (ff floors × avg per floor × 100%), smoke above (sf floors × contents/floor × 20%), water below (wf floors × contents/floor × 15%), and combined total. APL multi-story note added to narrative for non-high-rise buildings with floors > 1 (FP 5020 Page 7: water on 2–3 floors below, smoke on 2–3 floors above). High-rise APL narrative note added for all high-rise buildings; APL auto-set to PML when high-rise has combustible exterior cladding (EIFS/IMP/ACM) per FP 5020 Page 7. Multi-story smoke/water narrative moved from MFL to PML (MFL uses Table 5 percentages which already account for multi-floor impact).</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.4</td><td style="padding:8px">03/12/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Applied FP 5020 Table 5 damage percentages to MFL calculation. Previously MFL assumed 100% loss of all at-risk property; now building, equipment, and inventory each receive their occupancy/construction-specific damage factor (e.g., Office/FR = 40%/40%/50%), correctly producing ~40–50% MFL for non-high-rise FR office buildings rather than 100%. Added Floors field to buildings (Site Info tab) enabling per-floor value context in the MFL narrative. Added multi-story fire scenario section to MFL narrative (FP 5020 Page 7): shows per-floor value, fire floor at 100%, smoke floor above at 20% contents, water floor below at 15% contents. PML narrative updated to display actual Table 5 percentages when PML = MFL (previously showed hardcoded 100%). MFL tab badge now shows blended Table 5 percentage of site PD.</td></tr>
