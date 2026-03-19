@@ -29,7 +29,20 @@ html.dark .tbtn{background:var(--border);color:var(--text)}
 .ct{color:var(--accent);font-size:14px;font-weight:600;margin-bottom:12px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-@media(max-width:700px){.g2,.g3{grid-template-columns:1fr}}
+@media(max-width:700px){
+  .g2,.g3{grid-template-columns:1fr}
+  .hdr{padding:8px 12px}
+  .hdr .tg{display:none}
+  .hdr h1{font-size:14px}
+  .hdr .r .s1{display:none}
+  .tabs{padding:0 6px}
+  .tb{padding:8px 9px;font-size:10px}
+  .cnt{padding:10px}
+  .footer{gap:12px;padding:6px 10px}
+  .fv .fn{font-size:13px}
+  .fv .fl{font-size:8px;letter-spacing:.5px}
+  .fd input,.fd select{font-size:16px}
+}
 .fd{margin-bottom:8px}.fd label{color:var(--muted);font-size:10px;font-weight:600;margin-bottom:3px;display:block;letter-spacing:.5px;text-transform:uppercase}
 .fd input,.fd select{background:var(--ibg);border:1px solid var(--ib);border-radius:5px;padding:7px 10px;color:var(--text);font-size:13px;width:100%;outline:none;font-family:'DM Sans',sans-serif;transition:border-color .2s}
 .fd input:focus,.fd select:focus{border-color:var(--accent)}
@@ -101,7 +114,7 @@ function loadState(){try{const s=localStorage.getItem('fp5020state');if(s)Object
 
 // DATA
 const APL_SC={A:{l:"A",d:"Non-Sensitive, Light/Ordinary, Adequate",wet:{fire:{a:700,b:.25,e:1,i:1},water:{a:1500,b:.1,e:.25,i:.5},smoke:{a:10000,b:.075,e:.075,i:.15}},dry:{fire:{a:1000,b:.25,e:1,i:1},water:{a:2000,b:.1,e:.25,i:.5},smoke:{a:15000,b:.075,e:.075,i:.15}},bi:"1 - 7 Days"},B:{l:"B",d:"Sensitive, Light/Ordinary, Adequate",wet:{fire:{a:700,b:.5,e:1,i:1},water:{a:1500,b:.25,e:.5,i:1},smoke:{a:10000,b:.125,e:.175,i:1}},dry:{fire:{a:1000,b:.5,e:1,i:1},water:{a:2000,b:.25,e:.5,i:1},smoke:{a:15000,b:.125,e:.175,i:1}},bi:"1 - 3 Weeks"},C:{l:"C",d:"Non-Sensitive, Extra Hazard, Adequate (No FL/CL)",wet:{fire:{a:1200,b:.25,e:1,i:1},water:{a:2500,b:.25,e:.25,i:.5},smoke:{a:20000,b:.075,e:.075,i:.15}},dry:{fire:{a:1500,b:.25,e:1,i:1},water:{a:3500,b:.25,e:.25,i:.5},smoke:{a:30000,b:.075,e:.075,i:.15}},bi:"1 - 7 Days"},D:{l:"D",d:"Sensitive, Extra Hazard, Adequate (No FL/CL)",wet:{fire:{a:1200,b:.5,e:1,i:1},water:{a:2500,b:.4,e:.5,i:1},smoke:{a:20000,b:.125,e:.175,i:1}},dry:{fire:{a:1500,b:.5,e:1,i:1},water:{a:3500,b:.4,e:.5,i:1},smoke:{a:30000,b:.125,e:.175,i:1}},bi:"2 - 4 Weeks"},E:{l:"E",d:"Non-Sensitive, Extra Hazard w/ FL/CL",wet:{fire:{a:"design",b:.25,e:1,i:1},water:{a:"2x",b:.25,e:.25,i:.5},smoke:{a:"comp",b:.075,e:.075,i:.15}},dry:null,bi:"8 - 16 Weeks"},F:{l:"F",d:"Sensitive, Extra Hazard w/ FL/CL",wet:{fire:{a:"design",b:.5,e:1,i:1},water:{a:"2x",b:.25,e:.5,i:1},smoke:{a:"comp",b:.125,e:.175,i:1}},dry:null,bi:"4 - 12 Weeks"},G:{l:"G",d:"Design Area Fire (Deficiency / Storage)",wet:{fire:{a:"design",b:1,e:1,i:1},water:{a:"5x",b:.25,e:.25,i:.5},smoke:{a:"comp",b:.125,e:.125,i:.625}},dry:null,bi:"4 - 12 Weeks"},H:{l:"H",d:"Storage, Non-Sensitive, ESFR",wet:{fire:{a:500,b:.25,e:1,i:1},water:{a:2000,b:.25,e:.25,i:1},smoke:{a:10000,b:.075,e:.075,i:.15}},dry:null,bi:"1 - 7 Days"},I:{l:"I",d:"Storage, Sensitive, ESFR",wet:{fire:{a:500,b:.5,e:1,i:1},water:{a:2000,b:.4,e:.4,i:1},smoke:{a:10000,b:.125,e:.15,i:1}},dry:null,bi:"2 - 4 Weeks"},J:{l:"J",d:"Storage, Non-Sensitive, CMSA",wet:{fire:{a:700,b:.25,e:1,i:1},water:{a:2000,b:.25,e:.25,i:1},smoke:{a:10000,b:.075,e:.075,i:.15}},dry:{fire:{a:1500,b:.25,e:1,i:1},water:{a:4000,b:.25,e:.25,i:1},smoke:{a:25000,b:.075,e:.075,i:.15}},bi:"1 - 7 Days"},K:{l:"K",d:"Storage, Sensitive, CMSA",wet:{fire:{a:700,b:.5,e:1,i:1},water:{a:2000,b:.4,e:.4,i:1},smoke:{a:10000,b:.125,e:.15,i:1}},dry:{fire:{a:1500,b:.5,e:1,i:1},water:{a:4000,b:.4,e:.4,i:1},smoke:{a:25000,b:.125,e:.15,i:1}},bi:"2 - 4 Weeks"}};
-const MFL_T={"Hospital/Medical":{fr:{b:10,e:60,i:100,bi:6},hnc:{b:30,e:80,i:100,bi:9},lnc:{b:30,e:80,i:100,bi:9},comb:{b:100,e:100,i:100,bi:18}},"Office":{fr:{b:40,e:40,i:50,bi:4.5},hnc:{b:50,e:40,i:50,bi:4.5},lnc:{b:60,e:50,i:60,bi:4.5},comb:{b:100,e:100,i:100,bi:7.5}},"Hydroelectric Power":{fr:{b:5,e:20,i:10,bi:12},hnc:{b:5,e:20,i:20,bi:12},lnc:{b:30,e:20,i:20,bi:12},comb:{b:100,e:100,i:100,bi:18}},"Data Center/Telecom":{fr:{b:10,e:30,i:30,bi:3},hnc:{b:10,e:30,i:30,bi:3},lnc:{b:30,e:30,i:30,bi:6},comb:{b:100,e:100,i:100,bi:18}},"Machine Shop/Light Metal":{fr:{b:10,e:20,i:20,bi:3},hnc:{b:10,e:20,i:20,bi:3},lnc:{b:30,e:30,i:30,bi:6},comb:{b:100,e:100,i:100,bi:12}},"Mineral Products":{fr:{b:10,e:20,i:10,bi:6},hnc:{b:10,e:20,i:20,bi:6},lnc:{b:30,e:30,i:30,bi:9},comb:{b:100,e:100,i:75,bi:12}},"Beverage Processing":{fr:{b:40,e:40,i:100,bi:9},hnc:{b:50,e:40,i:100,bi:12},lnc:{b:60,e:50,i:100,bi:12},comb:{b:100,e:100,i:100,bi:18}},"Retail (non Big Box)":{fr:{b:50,e:60,i:100,bi:10.5},hnc:{b:70,e:70,i:100,bi:10.5},lnc:{b:80,e:70,i:100,bi:10.5},comb:{b:100,e:100,i:100,bi:10.5}},"Food Processing":{fr:{b:50,e:50,i:100,bi:10.5},hnc:{b:60,e:60,i:100,bi:12},lnc:{b:70,e:60,i:100,bi:12},comb:{b:100,e:100,i:100,bi:12}},"Electronic/Electrical Mfg":{fr:{b:50,e:60,i:100,bi:9},hnc:{b:70,e:70,i:100,bi:12},lnc:{b:80,e:70,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Metal Smelting/Foundry":{fr:{b:50,e:60,i:40,bi:18},hnc:{b:70,e:70,i:50,bi:18},lnc:{b:80,e:70,i:80,bi:18},comb:{b:100,e:80,i:80,bi:18}},"Big Box Retail":{fr:{b:50,e:60,i:60,bi:7.5},hnc:{b:70,e:80,i:80,bi:10.5},lnc:{b:90,e:80,i:90,bi:10.5},comb:{b:100,e:100,i:100,bi:10.5}},"Box Mfg/Printing":{fr:{b:50,e:70,i:100,bi:10.5},hnc:{b:70,e:80,i:100,bi:10.5},lnc:{b:90,e:80,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Vehicle Manufacturing":{fr:{b:50,e:50,i:50,bi:12},hnc:{b:60,e:60,i:60,bi:15},lnc:{b:70,e:60,i:60,bi:18},comb:{b:100,e:100,i:100,bi:24}},"Brewery/Distillery/Winery":{fr:{b:50,e:60,i:100,bi:12},hnc:{b:70,e:70,i:100,bi:12},lnc:{b:80,e:70,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Wood/Plastic Products":{fr:{b:70,e:90,i:100,bi:18},hnc:{b:80,e:90,i:100,bi:18},lnc:{b:90,e:90,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Cotton Mill/Sugar Mill":{fr:{b:80,e:100,i:100,bi:18},hnc:{b:90,e:100,i:100,bi:18},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Rubber Manufacturing":{fr:{b:70,e:90,i:100,bi:12},hnc:{b:80,e:90,i:100,bi:18},lnc:{b:90,e:90,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Warehousing":{fr:{b:70,e:90,i:90,bi:9},hnc:{b:80,e:90,i:90,bi:12},lnc:{b:100,e:100,i:100,bi:12},comb:{b:100,e:100,i:100,bi:12}},"Warehousing (Refrigerated)":{fr:{b:70,e:90,i:100,bi:12},hnc:{b:80,e:90,i:100,bi:18},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Aircraft Hangar":{fr:{b:90,e:100,i:100,bi:18},hnc:{b:100,e:100,i:100,bi:18},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Pharma/Cosmetics/Drugs":{fr:{b:80,e:100,i:100,bi:24},hnc:{b:90,e:100,i:100,bi:24},lnc:{b:100,e:100,i:100,bi:24},comb:{b:100,e:100,i:100,bi:24}},"Semiconductor Mfg":{fr:{b:20,e:90,i:100,bi:24},hnc:{b:20,e:90,i:100,bi:24},lnc:{b:30,e:90,i:100,bi:24},comb:{b:100,e:100,i:100,bi:24}},"Grain Elevator/Milling":{fr:{b:90,e:100,i:100,bi:18},hnc:{b:100,e:100,i:100,bi:18},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Hotel/Residential/School":{fr:{b:50,e:50,i:70,bi:10.5},hnc:{b:60,e:60,i:70,bi:10.5},lnc:{b:70,e:60,i:80,bi:10.5},comb:{b:100,e:100,i:100,bi:10.5}},"Chemical Processing":{fr:{b:60,e:70,i:100,bi:18},hnc:{b:70,e:80,i:100,bi:18},lnc:{b:80,e:80,i:100,bi:18},comb:{b:100,e:100,i:100,bi:24}}};
+const MFL_T={"Hospital/Medical":{fr:{b:10,e:60,i:100,bi:6},hnc:{b:30,e:80,i:100,bi:9},lnc:{b:30,e:80,i:100,bi:9},comb:{b:100,e:100,i:100,bi:18}},"Office":{fr:{b:40,e:40,i:50,bi:4.5},hnc:{b:50,e:40,i:50,bi:4.5},lnc:{b:60,e:50,i:60,bi:4.5},comb:{b:100,e:100,i:100,bi:7.5}},"Hydroelectric Power":{fr:{b:5,e:20,i:10,bi:12},hnc:{b:5,e:20,i:20,bi:12},lnc:{b:30,e:20,i:20,bi:12},comb:{b:100,e:100,i:100,bi:18}},"Data Center/Telecom":{fr:{b:10,e:30,i:30,bi:3},hnc:{b:10,e:30,i:30,bi:3},lnc:{b:30,e:30,i:30,bi:6},comb:{b:100,e:100,i:100,bi:18}},"Machine Shop/Light Metal":{fr:{b:10,e:20,i:20,bi:3},hnc:{b:10,e:20,i:20,bi:3},lnc:{b:30,e:30,i:30,bi:6},comb:{b:100,e:100,i:100,bi:12}},"Mineral Products":{fr:{b:10,e:20,i:10,bi:6},hnc:{b:10,e:20,i:20,bi:6},lnc:{b:30,e:30,i:30,bi:9},comb:{b:100,e:100,i:75,bi:12}},"Beverage Processing":{fr:{b:40,e:40,i:100,bi:9},hnc:{b:50,e:40,i:100,bi:12},lnc:{b:60,e:50,i:100,bi:12},comb:{b:100,e:100,i:100,bi:18}},"Retail (non Big Box)":{fr:{b:50,e:60,i:100,bi:10.5},hnc:{b:70,e:70,i:100,bi:10.5},lnc:{b:80,e:70,i:100,bi:10.5},comb:{b:100,e:100,i:100,bi:10.5}},"Food Processing":{fr:{b:50,e:50,i:100,bi:10.5},hnc:{b:60,e:60,i:100,bi:12},lnc:{b:70,e:60,i:100,bi:12},comb:{b:100,e:100,i:100,bi:12}},"Electronic/Electrical Mfg":{fr:{b:50,e:60,i:100,bi:9},hnc:{b:70,e:70,i:100,bi:12},lnc:{b:80,e:70,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Metal Smelting/Foundry":{fr:{b:50,e:60,i:40,bi:18},hnc:{b:70,e:80,i:50,bi:18},lnc:{b:80,e:80,i:80,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Big Box Retail":{fr:{b:50,e:60,i:60,bi:7.5},hnc:{b:70,e:80,i:80,bi:10.5},lnc:{b:90,e:80,i:90,bi:10.5},comb:{b:100,e:100,i:100,bi:10.5}},"Box Mfg/Printing":{fr:{b:50,e:70,i:100,bi:10.5},hnc:{b:70,e:80,i:100,bi:10.5},lnc:{b:90,e:80,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Vehicle Manufacturing":{fr:{b:50,e:50,i:50,bi:12},hnc:{b:60,e:60,i:60,bi:15},lnc:{b:70,e:60,i:60,bi:18},comb:{b:100,e:100,i:100,bi:24}},"Brewery/Distillery/Winery":{fr:{b:50,e:60,i:100,bi:12},hnc:{b:70,e:70,i:100,bi:12},lnc:{b:80,e:70,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Wood/Plastic Products":{fr:{b:70,e:90,i:100,bi:18},hnc:{b:80,e:90,i:100,bi:18},lnc:{b:90,e:90,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Cotton Mill/Sugar Mill":{fr:{b:80,e:100,i:100,bi:18},hnc:{b:90,e:100,i:100,bi:18},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Rubber Manufacturing":{fr:{b:70,e:90,i:100,bi:12},hnc:{b:80,e:90,i:100,bi:18},lnc:{b:90,e:90,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Warehousing":{fr:{b:70,e:90,i:90,bi:9},hnc:{b:80,e:90,i:90,bi:12},lnc:{b:100,e:100,i:100,bi:12},comb:{b:100,e:100,i:100,bi:12}},"Warehousing (Refrigerated)":{fr:{b:70,e:90,i:100,bi:9},hnc:{b:80,e:90,i:100,bi:12},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Aircraft Hangar":{fr:{b:90,e:100,i:100,bi:18},hnc:{b:100,e:100,i:100,bi:18},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Pharma/Cosmetics/Drugs":{fr:{b:80,e:100,i:100,bi:24},hnc:{b:90,e:100,i:100,bi:24},lnc:{b:100,e:100,i:100,bi:24},comb:{b:100,e:100,i:100,bi:24}},"Semiconductor Mfg":{fr:{b:20,e:90,i:100,bi:24},hnc:{b:20,e:90,i:100,bi:24},lnc:{b:30,e:90,i:100,bi:24},comb:{b:100,e:100,i:100,bi:24}},"Grain Elevator/Milling":{fr:{b:90,e:100,i:100,bi:18},hnc:{b:100,e:100,i:100,bi:18},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},"Hotel/Residential/School":{fr:{b:50,e:50,i:70,bi:10.5},hnc:{b:60,e:60,i:70,bi:10.5},lnc:{b:70,e:60,i:80,bi:10.5},comb:{b:100,e:100,i:100,bi:10.5}},"Chemical Processing":{fr:{b:60,e:70,i:100,bi:18},hnc:{b:70,e:80,i:100,bi:18},lnc:{b:80,e:80,i:100,bi:18},comb:{b:100,e:100,i:100,bi:24}}};
 const MFL_SEP={fr:{fr:{l:30,o:40,e:60},nc:{l:40,o:50,e:80},comb:{l:50,o:80,e:100}},nc:{fr:{l:40,o:60,e:90},nc:{l:50,o:80,e:100},comb:{l:80,o:100,e:130}},comb:{fr:{l:80,o:100,e:130},nc:{l:100,o:130,e:150},comb:{l:130,o:150,e:200}}};
 const CL={fr:"Fire Resistive",hnc:"Heavy Noncombustible",lnc:"Light Noncombustible",comb:"Combustible"};
 const SYS_LABELS={sprinkler_riser:"sprinkler riser/control valve",fire_pump:"fire pump",detection:"detection/alarm system",clean_agent:"clean agent system",foam_system:"foam system",deluge:"deluge system",other:"fire protection system"};
@@ -215,7 +228,7 @@ function calcAPL(){
   return{sc,eq,R,pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT:rLE(pB+pE+pI),bi};
 }
 
-// MFL - start with total site values, subtract adequately separated buildings, apply Table 5 percentages
+// MFL - start with total site values, subtract adequately separated buildings, apply Table 4 percentages
 function calcMFL(){
   // MFL starts from total site values — use raw state totals, not gv() which is primary-building-only
   const a=primaryArea(),siteTb=pf(S.totalBldg),siteTe=pf(S.totalEquip),siteTi=pf(S.totalInv);
@@ -246,19 +259,42 @@ function calcMFL(){
   // Subtract adequately separated building values
   let exclPD=0;exclB.forEach(b=>{exclPD+=b.value;});
 
-  // Apply Table 5 (MFL_T) damage percentages to at-risk property
+  // Apply Table 4 (MFL_T) damage percentages to at-risk property
   const atRiskTotal=Math.max(sitePD-fwReduction-exclPD,0);
   const atRiskFrac=sitePD>0?atRiskTotal/sitePD:0;
   const atRiskBldg=rLE(siteTb*atRiskFrac);
   const atRiskEquip=rLE(siteTe*atRiskFrac);
   const atRiskInv=rLE(siteTi*atRiskFrac);
-  const pB=rLE(siteTb*atRiskFrac*(d.b/100));
-  const pE=rLE(siteTe*atRiskFrac*(d.e/100));
-  const pI=rLE(siteTi*atRiskFrac*(d.i/100));
+
+  // High-rise MFL: floor-by-floor damage calculation; Table 4 % used as condemnation threshold
+  // (Table 5 condemnation thresholds not yet in data — Table 4 % used as proxy)
+  let pB,pE,pI,hrMeta={isHR:false};
+  if(S.isHighRise){
+    const nFloors=Math.max(pf(S.stories)||1,1);
+    if(S.extSpreadPossible){
+      // Exterior spread: fire runs full building height — total loss of all at-risk property
+      pB=atRiskBldg;pE=atRiskEquip;pI=atRiskInv;
+      hrMeta={isHR:true,extSpread:true,nFloors,condemned:true,bldgDmgPct:100,contsFrac:1};
+    } else {
+      // No exterior spread: 2 fire floors at 100%, 4 smoke above at 20%, 6 water below at 15%
+      const fireF=Math.min(2,nFloors);
+      const smokeF=Math.min(4,Math.max(nFloors-fireF,0));
+      const waterF=Math.min(6,nFloors);
+      const bldgDmgFrac=fireF/nFloors+(smokeF/nFloors)*0.20;
+      const bldgDmgPct=bldgDmgFrac*100;
+      const condemned=bldgDmgPct>=d.b;
+      pB=condemned?atRiskBldg:rLE(atRiskBldg*bldgDmgFrac);
+      const contsFrac=Math.min(fireF/nFloors+(smokeF/nFloors)*0.20+(waterF/nFloors)*0.15,1);
+      pE=rLE(atRiskEquip*contsFrac);pI=rLE(atRiskInv*contsFrac);
+      hrMeta={isHR:true,extSpread:false,nFloors,fireF,smokeF,waterF,bldgDmgFrac,bldgDmgPct,condemned,condemnThresh:d.b,contsFrac};
+    }
+  } else {
+    pB=rLE(atRiskBldg*(d.b/100));pE=rLE(atRiskEquip*(d.e/100));pI=rLE(atRiskInv*(d.i/100));
+  }
   const pT=Math.max(pB+pE+pI,0);
 
   const biM=d.bi;
-  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:d.b,eP:d.e,iP:d.i};
+  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:d.b,eP:d.e,iP:d.i,hrMeta};
 }
 
 // PML
@@ -377,7 +413,7 @@ function genN(){
 
   if(pml.eq){
     p+=`${pml.rsn}.\n\n`;
-    p+=`Under these conditions, damage is determined by FP 5020 Table 5 (${occ}, ${ct}):\n`;
+    p+=`Under these conditions, damage is determined by FP 5020 Table 4 (${occ}, ${ct}):\n`;
     p+=`  Building:      ${fmtF(pml.pB)} (${pml.bP}%)\n`;
     p+=`  Equipment/M&E: ${fmtF(pml.pE)} (${pml.eP}%)\n`;
     p+=`  Inventory/WIP: ${fmtF(pml.pI)} (${pml.iP}%)\n`;
@@ -416,7 +452,8 @@ function genN(){
     p+=`  Inventory/WIP: ${fmtF(pml.pI)}\n`;
     p+=`  ─────────────────────────────\n`;
     p+=`  Total PML PD:  ${fmtF(pml.pT)}${pml.aplFloor?" (adjusted up to APL floor)":""}\n\n`;
-    p+=`Business Interruption: ${biText(pml.biM)} (per Table 4)`;
+    const aplBiMin=apl.bi?` Minimum APL BI duration is ${apl.bi} (Scenario ${apl.sc}).`:"";
+    p+=`Business Interruption: ${biText(pml.biM)}\nNote: FP 5020 provides no specific BI duration guidance for PML. Duration is engineering discretion and should be no less than the APL BI duration.${aplBiMin}`;
   }
 
   if(hr){
@@ -457,7 +494,7 @@ function genN(){
   S.pmlN=p;
 
   // ===== MFL =====
-  let m=`The Maximum Foreseeable Loss (MFL) estimate assumes the complete failure of all active fire suppression systems and no effective response from the site PEO or public fire agencies. Actual damage percentages are determined by construction type and occupancy per FP 5020 Table 5.${hrN}\n\n`;
+  let m=`The Maximum Foreseeable Loss (MFL) estimate assumes the complete failure of all active fire suppression systems and no effective response from the site PEO or public fire agencies. Actual damage percentages are determined by construction type and occupancy per FP 5020 Table 4.${hrN}\n\n`;
 
   m+=`Total Site Property Damage: ${fmtF(mfl.sitePD)}\n`;
   m+=`  Building:      ${fmtF(v.tb)}\n`;
@@ -482,24 +519,55 @@ function genN(){
   if(mfl.exclPD>0) m+=`\n  Separated Buildings:  -${fmtF(mfl.exclPD)}`;
   if(mfl.fwReduction>0||mfl.exclPD>0){m+=`\n  ─────────────────────────────\n  At-Risk Property:      ${fmtF(mfl.atRiskTotal)}`;}
 
-  m+=`\n\nTable 5 Damage Percentages (${occ}, ${ct}):\n`;
-  m+=`  Building structure: ${mfl.bP}%\n`;
-  m+=`  Equipment/M&E:      ${mfl.eP}%\n`;
-  m+=`  Inventory/WIP:      ${mfl.iP}%\n\n`;
-  m+=`MFL Property Damage:\n`;
-  m+=`  Building:      ${fmtF(mfl.atRiskBldg)} × ${mfl.bP}% = ${fmtF(mfl.pB)}\n`;
-  m+=`  Equipment/M&E: ${fmtF(mfl.atRiskEquip)} × ${mfl.eP}% = ${fmtF(mfl.pE)}\n`;
-  m+=`  Inventory/WIP: ${fmtF(mfl.atRiskInv)} × ${mfl.iP}% = ${fmtF(mfl.pI)}\n`;
-  m+=`  ─────────────────────────────\n`;
-  m+=`  Total MFL PD:  ${fmtF(mfl.pT)}`;
-
-  m+=`\n\nBusiness Interruption: ${biText(mfl.biM)} (per Table 4, ${occ}, ${ct})`;
-
-  if(hr){
+  if(hr&&mfl.hrMeta&&mfl.hrMeta.isHR){
+    // High-rise MFL: floor-by-floor calculation; Table 4 % used as condemnation threshold
+    const hm=mfl.hrMeta;
     const en2=S.extType==="combustible"?"The building has combustible exterior cladding, so exterior fire spread is assumed."
       :S.extType!=="none"&&pf(S.floorToWindow)>0&&pf(S.windowHeight)>0?`H/h ratio is ${(pf(S.floorToWindow)/pf(S.windowHeight)).toFixed(2)}.`:"";
-    m+=`\n\nHigh-Rise MFL: ${en2} ${!S.extSpreadPossible?"The fire originates on the floor below the greatest value and progresses to the floor above through open penetrations, resulting in 2 fire floors at 100% damage. Smoke damage of 20% extends to 4 floors above and water damage of 15% extends to 6 floors below. BI is estimated at 9 to 12 months.":"With exterior fire spread possible, the fire progresses from the ground floor to the fire-stop mechanical floor or the top of the building. All involved floors sustain 100% damage. Smoke damage of 20% extends to 6 floors above and water damage of 15% extends to 10 floors below. BI is estimated at 18 to 24 months."}`;
+    m+=`\n\nHigh-Rise MFL (floor-by-floor per Figure 2): ${en2}\n`;
+    m+=`Note: Table 4 damage percentages (${mfl.bP}% bldg / ${mfl.eP}% equip / ${mfl.iP}% inv) serve as the building condemnation threshold — not the damage calculation factor. Actual damage is determined by floors involved.\n\n`;
+    if(hm.extSpread){
+      m+=`Exterior fire spread assumed — fire progresses from ground floor to top. All floors sustain 100% damage.\n`;
+      m+=`  Building (total loss, condemned): ${fmtF(mfl.pB)}\n`;
+      m+=`  Equipment/M&E (total loss):       ${fmtF(mfl.pE)}\n`;
+      m+=`  Inventory/WIP (total loss):       ${fmtF(mfl.pI)}\n`;
+      m+=`  BI: 18 to 24 months\n`;
+    } else {
+      m+=`No exterior spread. Fire originates on floor below greatest value, progresses one floor up.\n`;
+      m+=`  Total floors: ${hm.nFloors}\n`;
+      m+=`  Fire floors: ${hm.fireF} floor(s) at 100%\n`;
+      m+=`  Smoke above: ${hm.smokeF} floor(s) at 20% (contents only)\n`;
+      m+=`  Water below: ${hm.waterF} floor(s) at 15% (contents only)\n\n`;
+      m+=`Building condemnation check (Table 4 threshold: ${hm.condemnThresh}%):\n`;
+      m+=`  Building damage = ${hm.fireF}/${hm.nFloors} floors × 100% + ${hm.smokeF}/${hm.nFloors} floors × 20% = ${hm.bldgDmgPct.toFixed(1)}%\n`;
+      if(hm.condemned){
+        m+=`  ${hm.bldgDmgPct.toFixed(1)}% ≥ ${hm.condemnThresh}% threshold → Building is condemned → 100% building loss\n`;
+        m+=`  Building (condemned, total loss): ${fmtF(mfl.pB)}\n`;
+      } else {
+        m+=`  ${hm.bldgDmgPct.toFixed(1)}% < ${hm.condemnThresh}% threshold → Building repairable\n`;
+        m+=`  Building (${hm.bldgDmgPct.toFixed(1)}% × ${fmtF(mfl.atRiskBldg)}): ${fmtF(mfl.pB)}\n`;
+      }
+      const contsPct=(hm.contsFrac*100).toFixed(1);
+      m+=`  Equipment/M&E (${contsPct}% blended damage × ${fmtF(mfl.atRiskEquip)}): ${fmtF(mfl.pE)}\n`;
+      m+=`  Inventory/WIP (${contsPct}% blended damage × ${fmtF(mfl.atRiskInv)}): ${fmtF(mfl.pI)}\n`;
+      m+=`  BI: 9 to 12 months\n`;
+    }
+    m+=`  ─────────────────────────────\n`;
+    m+=`  Total MFL PD: ${fmtF(mfl.pT)}`;
+  } else {
+    m+=`\n\nTable 4 Damage Percentages (${occ}, ${ct}):\n`;
+    m+=`  Building structure: ${mfl.bP}%\n`;
+    m+=`  Equipment/M&E:      ${mfl.eP}%\n`;
+    m+=`  Inventory/WIP:      ${mfl.iP}%\n\n`;
+    m+=`MFL Property Damage:\n`;
+    m+=`  Building:      ${fmtF(mfl.atRiskBldg)} × ${mfl.bP}% = ${fmtF(mfl.pB)}\n`;
+    m+=`  Equipment/M&E: ${fmtF(mfl.atRiskEquip)} × ${mfl.eP}% = ${fmtF(mfl.pE)}\n`;
+    m+=`  Inventory/WIP: ${fmtF(mfl.atRiskInv)} × ${mfl.iP}% = ${fmtF(mfl.pI)}\n`;
+    m+=`  ─────────────────────────────\n`;
+    m+=`  Total MFL PD:  ${fmtF(mfl.pT)}`;
   }
+
+  m+=`\n\nBusiness Interruption: ${biText(mfl.biM)} (per Table 4, ${occ}, ${ct})`;
   S.mflN=m;
 }
 
@@ -592,7 +660,7 @@ function r2(){
 }
 
 function r3(){
-  const pml=calcPML(),v=gv(),dA=pf(S.designArea)||1500,calcA=Math.min(Math.round(dA*1.5),v.a||Infinity),usedA=pf(S.pmlArea)>0?Math.min(pf(S.pmlArea),v.a||Infinity):calcA;
+  const pml=calcPML(),apl=calcAPL(),v=gv(),dA=pf(S.designArea)||1500,calcA=Math.min(Math.round(dA*1.5),v.a||Infinity),usedA=pf(S.pmlArea)>0?Math.min(pf(S.pmlArea),v.a||Infinity):calcA;
   return`<div class="cd"><h3 class="ct">PML Configuration</h3>
   <div class="note">The PML fire area represents the area that would burn before the fire department or physical barriers contain the fire, given the single system failure. With no sprinkler containment, the fire grows to the full sprinkler zone area plus additional spread before response.</div>
   <div class="g2">${fd("Single System Failure",sel("pmlSystem",[["sprinkler_riser","Sprinkler Riser / Control Valve"],["fire_pump","Fire Pump"],["detection","Detection / Alarm System"],["clean_agent","Clean Agent System"],["foam_system","Foam System"],["deluge","Deluge System"],["other","Other"]]))}
@@ -605,7 +673,8 @@ function r3(){
   <div class="tgr">${tog("Combustible Construction/Cladding","hasCombConst")}</div></div>
   <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">PML Results</h3>${pml.eq?'<span class="bdg bdg-d">PML = MFL</span>':''}${pml.aplFloor?'<span class="bdg bdg-w" style="margin-left:4px">PML >= APL</span>':''}</div>
   <div class="g3" style="margin-bottom:6px">${vc("Building",fmt(pml.pB))}${vc("Equipment",fmt(pml.pE))}${vc("Inv/WIP",fmt(pml.pI))}</div>
-  <div class="g2">${vc("Total PML PD",fmt(pml.pT),"","dng")}${vc("BI",pml.biM+" months",v.by>0?fmtF(pml.bV):"","wrn")}</div></div>
+  <div class="g2">${vc("Total PML PD",fmt(pml.pT),"","dng")}${vc("BI",pml.biM+" months",v.by>0?fmtF(pml.bV):"","wrn")}</div>
+  <div class="note" style="margin-top:4px">BI duration is engineering discretion — FP 5020 provides no PML-specific guidance. Duration should be no less than the APL BI${apl.bi?` (${apl.bi}, Scenario ${apl.sc})`:""}.${!pml.eq?" The value shown is drawn from Table 4 as a starting point only.":""}</div></div>
   <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">PML Narrative</h3><button class="bnc" onclick="copyEl('pmlTA')">Copy</button></div>
   ${fd("",`<textarea id="pmlTA" oninput="su('pmlN',this.value)" onblur="ib('pmlN',this)">${esc(S.pmlN)}</textarea>`)}</div>`;
 }
@@ -635,7 +704,7 @@ function r4(){
   <div class="note">Enter the separation distance from the primary building to each adjacent building. Buildings meeting the minimum distance per Table 3a are excluded from the MFL. You can override the auto-distributed value if needed.</div>
   <div style="display:grid;grid-template-columns:1.3fr .7fr .7fr .7fr .8fr;gap:6px;margin-bottom:4px;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Building</div><div>Area</div><div>Sep. (ft)</div><div>Value ($)</div><div>Required</div></div>
   ${sepHtml}</div>`:``}
-  <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">MFL Results</h3><span class="bdg bdg-d">${mfl.hasFW?(mfl.mflA/v.a*100).toFixed(0)+"% of primary | ":""}<span title="Table 5 blended damage percentage of total site PD">${mfl.sitePD>0?Math.round(mfl.pT/mfl.sitePD*100):0}% of Site PD (Table 5)</span></span></div>
+  <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">MFL Results</h3><span class="bdg bdg-d">${mfl.hasFW?(mfl.mflA/v.a*100).toFixed(0)+"% of primary | ":""}<span title="Table 4 blended damage percentage of total site PD">${mfl.sitePD>0?Math.round(mfl.pT/mfl.sitePD*100):0}% of Site PD (Table 4)</span></span></div>
   <div class="g3" style="margin-bottom:6px">${vc("Total Site PD",fmt(mfl.sitePD))}${vc("Separated / Excluded","-"+fmt(mfl.exclPD+(mfl.fwReduction||0)),mfl.exclB.length+" bldg(s) + wall","suc")}${vc("Total MFL PD",fmt(mfl.pT),"","dng")}</div>
   <div class="g2">${vc("BI",mfl.biM+" months",v.by>0?fmtF(mfl.bV):"","wrn")}${vc("Total Exposure",fmt(mfl.pT+(mfl.bV||0)),"PD + BI")}</div></div>
   <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">MFL Narrative</h3><button class="bnc" onclick="copyEl('mflTA')">Copy</button></div>
@@ -688,6 +757,8 @@ function rRev(){
   <table style="width:100%;border-collapse:collapse;font-size:12px">
   <thead><tr style="border-bottom:2px solid var(--border)"><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Rev</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Date</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Author</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Status</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Description</th></tr></thead>
   <tbody>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.7</td><td style="padding:8px">03/19/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Bug fix: High-rise MFL was incorrectly applying Table 4 damage percentages (e.g., 40% building for FR Office) as direct damage factors. Table 4 percentages are correctly treated as the building condemnation threshold. High-rise MFL now uses a floor-by-floor calculation: 2 fire floors at 100%, smoke to 4 floors above at 20%, water to 6 floors below at 15% (no exterior spread); all floors at 100% (exterior spread). Calculated building damage % is compared to the Table 4 threshold — if met or exceeded, building is condemned (100% loss); otherwise only the calculated floor damage is used. MFL narrative now shows the floor-by-floor math with explicit condemnation check. PML BI duration updated to reflect engineering discretion (no FP 5020 guidance for PML BI); narrative notes APL BI as minimum floor. Mobile responsive layout improved: header, tabs, footer, and inputs optimized for narrow screens.</td></tr>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.6</td><td style="padding:8px">03/13/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Table 4 data corrections: Metal Smelting/Foundry HNC equip 70%→80%, LNC equip 70%→80%, Comb equip 80%→100%, Comb inventory 80%→100%. Warehousing (Refrigerated) FR BI 12→9 months, HNC BI 18→12 months. "Table 5" label corrected to "Table 4" throughout all narratives, UI badge, and code comments (Table 4 = MFL damage percentages; Table 5 = building condemnation threshold — not yet implemented). All 101 unit tests confirmed passing. Flagged: Chemical Processing occupancy not present in FP 5020 Rev E Table 4 — pending review.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.5</td><td style="padding:8px">03/12/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">PML High Rise: replaced auto-calculated fire floors with explicit "Fire Floors Involved" select on High Rise tab (1, 2, or 3 per Table 2). PML high-rise narrative now shows full Table 2 per-floor breakdown: fire damage (ff floors × avg per floor × 100%), smoke above (sf floors × contents/floor × 20%), water below (wf floors × contents/floor × 15%), and combined total. APL multi-story note added to narrative for non-high-rise buildings with floors > 1 (FP 5020 Page 7: water on 2–3 floors below, smoke on 2–3 floors above). High-rise APL narrative note added for all high-rise buildings; APL auto-set to PML when high-rise has combustible exterior cladding (EIFS/IMP/ACM) per FP 5020 Page 7. Multi-story smoke/water narrative moved from MFL to PML (MFL uses Table 5 percentages which already account for multi-floor impact).</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.4</td><td style="padding:8px">03/12/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Applied FP 5020 Table 5 damage percentages to MFL calculation. Previously MFL assumed 100% loss of all at-risk property; now building, equipment, and inventory each receive their occupancy/construction-specific damage factor (e.g., Office/FR = 40%/40%/50%), correctly producing ~40–50% MFL for non-high-rise FR office buildings rather than 100%. Added Floors field to buildings (Site Info tab) enabling per-floor value context in the MFL narrative. Added multi-story fire scenario section to MFL narrative (FP 5020 Page 7): shows per-floor value, fire floor at 100%, smoke floor above at 20% contents, water floor below at 15% contents. PML narrative updated to display actual Table 5 percentages when PML = MFL (previously showed hardcoded 100%). MFL tab badge now shows blended Table 5 percentage of site PD.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.3</td><td style="padding:8px">03/11/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Bug fix: MFL fire wall reduction now correctly uses the primary building's proportional value rather than total site PD, which produced an over-inflated exclusion in multi-building scenarios. Added comprehensive unit test suite (101 tests) covering all helper functions, APL Scenarios A–K (Figures 1A/1B/1C), PML, MFL, Table 1B deficiency logic, high-rise factors, and integration ordering checks (APL ≤ PML ≤ MFL).</td></tr>
