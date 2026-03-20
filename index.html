@@ -91,17 +91,12 @@ html.dark .footer{box-shadow:0 -2px 10px rgba(0,0,0,.3)}
 .fv .fn{font-size:16px;font-weight:700;font-family:'DM Mono',monospace}
 .fv .fn.suc{color:var(--success)}.fv .fn.wrn{color:var(--warn)}.fv .fn.dng{color:var(--danger)}
 .pri-radio{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
-.apl-adj{margin-top:12px}
-.apl-zone-hdr{color:var(--accent);font-size:11px;font-weight:600;text-transform:uppercase;margin:10px 0 4px;letter-spacing:.5px}
-.apl-row{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:11px}
-.apl-row label{width:75px;color:var(--muted);flex-shrink:0;font-size:10px;text-transform:uppercase}
-.apl-row input[type=range]{flex:1;height:6px;-webkit-appearance:none;appearance:none;background:var(--ib);border-radius:3px;outline:none;cursor:pointer}
-.apl-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2)}
-.apl-row input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;border:none}
-.apl-row input[type=number]{width:62px;padding:4px 6px;background:var(--ibg);border:1px solid var(--ib);border-radius:4px;color:var(--text);font-size:11px;font-family:'DM Mono',monospace;text-align:center;outline:none}
+.apl-zone-hdr{color:var(--accent);font-size:10px;font-weight:600;text-transform:uppercase;margin:8px 0 2px;letter-spacing:.5px}
+.apl-row{display:flex;align-items:center;gap:6px;margin:2px 0;font-size:11px}
+.apl-row label{width:72px;color:var(--muted);flex-shrink:0;font-size:10px}
+.apl-row input[type=number]{width:58px;padding:3px 5px;background:var(--ibg);border:1px solid var(--ib);border-radius:4px;color:var(--text);font-size:11px;font-family:'DM Mono',monospace;text-align:center;outline:none}
 .apl-row input[type=number]:focus{border-color:var(--accent)}
-.apl-row .pct-fixed{color:var(--dim);font-size:11px;min-width:40px;text-align:center}
-.apl-row .pct-tag{font-size:9px;color:var(--muted);margin-left:2px}
+.apl-row .pct-range{color:var(--dim);font-size:9px}
 .apl-reset{background:none;border:1px solid var(--border);border-radius:4px;padding:3px 10px;font-size:10px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif}
 .apl-reset:hover{color:var(--accent);border-color:var(--accent)}
 </style>
@@ -172,7 +167,7 @@ const S={
   // High rise (deprecated — kept for saved-state compat, no longer used in calculations)
   isHighRise:false,stories:"",hrFireFloors:"1",topFloorBelowFD:true,extSpreadPossible:false,extType:"none",floorToWindow:"",windowHeight:"",
   // APL damage overrides: keyed as "SCENARIO_zone_type", e.g. "A_fire_b"
-  aplDmgOverrides:{},aplUnlockRange:false,
+  aplDmgOverrides:{},
 };
 loadState();
 
@@ -198,22 +193,12 @@ function set(k,v){S[k]=v;render()}
 function ib(k,el){S[k]=el.value;render()}
 
 // APL damage override helpers
-function aplRange(baseVal,unlocked){
-  if(baseVal>=1)return null;
-  if(unlocked)return{min:0.005,max:1.0};
-  const m=Math.max(baseVal*0.4,0.025);
-  return{min:Math.max(Math.round((baseVal-m)*200)/200,0.005),max:Math.min(Math.round((baseVal+m)*200)/200,1.0)};
-}
 function aplDmg(sc,zone,key,baseVal){
   const k=sc+'_'+zone+'_'+key;
-  if(S.aplDmgOverrides[k]!==undefined){
-    const v=S.aplDmgOverrides[k];
-    if(!S.aplUnlockRange){const r=aplRange(baseVal,false);if(r)return Math.max(r.min,Math.min(r.max,v));}
-    return v;
-  }
+  if(S.aplDmgOverrides[k]!==undefined)return Math.max(0,Math.min(1,S.aplDmgOverrides[k]));
   return baseVal;
 }
-function setAplDmg(sc,zone,key,val){S.aplDmgOverrides[sc+'_'+zone+'_'+key]=parseFloat(val);render()}
+function setAplDmg(sc,zone,key,val){const k=sc+'_'+zone+'_'+key;if(val===undefined||val===''||isNaN(parseFloat(val)))delete S.aplDmgOverrides[k];else S.aplDmgOverrides[k]=parseFloat(val);render()}
 function resetAplDmg(sc){Object.keys(S.aplDmgOverrides).forEach(k=>{if(k.startsWith(sc+'_'))delete S.aplDmgOverrides[k]});render()}
 
 // BUILDING HELPERS
@@ -382,8 +367,8 @@ function calcPML(){
     const aplFA=(x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0})(sys.fire.a);
     const sf=aplFA>0?pmlFA/aplFA:1;
     ["fire","water","smoke"].forEach(t=>{const zd=sys[t];const azA=(x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0})(zd.a);
-      const pzA=Math.min(Math.round(azA*sf),v.a);const bD=(v.tb/v.a)*zd.b*pzA,eD=(v.te/v.a)*zd.e*pzA,iD=(v.ti/v.a)*zd.i*pzA;
-      pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:azA,pmlA:pzA,bPct:zd.b,ePct:zd.e,iPct:zd.i,bD:rLE(bD),eD:rLE(eD),iD:rLE(iD)});});}
+      const pzA=Math.min(Math.round(azA*sf),v.a);const eb=aplDmg(apl.sc,t,'b',zd.b),ee=aplDmg(apl.sc,t,'e',zd.e),ei=aplDmg(apl.sc,t,'i',zd.i);const bD=(v.tb/v.a)*eb*pzA,eD=(v.te/v.a)*ee*pzA,iD=(v.ti/v.a)*ei*pzA;
+      pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:azA,pmlA:pzA,bPct:eb,ePct:ee,iPct:ei,bD:rLE(bD),eD:rLE(eD),iD:rLE(iD)});});}
   else{const r=v.a>0?pmlFA/v.a:1;pB=v.tb*(d.b/100)*r;pE=v.te*(d.e/100)*r;pI=v.ti*(d.i/100)*r;}
   let pT=rLE(pB+pE+pI),aplFloor=false;if(pT<apl.pT){aplFloor=true;pT=apl.pT;}
   return{biM:d.bi,pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT,bV:rLE(v.by/12*d.bi),eq:false,rsn:"",aplFloor,pmlFA,zones,bP:d.b,eP:d.e,iP:d.i};
@@ -688,35 +673,35 @@ function aplSliderUI(sc){
   if(!sc||!APL_SC[sc])return'';
   const s=APL_SC[sc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
   const zones=[["fire","Fire"],["water","Water"],["smoke","Smoke"]];
-  const types=[["b","Building"],["e","Equipment"],["i","Inventory"]];
+  const types=[["b","Bldg"],["e","Equip"],["i","Inv"]];
   let hasAny=false;
   zones.forEach(([z])=>types.forEach(([k])=>{if(sys[z][k]<1)hasAny=true}));
   if(!hasAny)return'';
-  let h='<div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">APL Damage Adjustments (Table 1A)</h3><button class="apl-reset" onclick="resetAplDmg(\''+sc+'\')">Reset to Table 1A</button></div>';
-  h+='<div class="note">Adjust damage percentages within Table 1A range for Scenario '+sc+'. Use the text input to type a precise value. Check "Unlock Range" to allow values outside the standard bounds.</div>';
-  h+='<div class="tgr" style="margin-bottom:10px">'+tog("Unlock Range","aplUnlockRange")+'</div>';
+  const hasOverrides=Object.keys(S.aplDmgOverrides).some(k=>k.startsWith(sc+'_'));
+  let h='<div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">Damage % Override (Table 1A)</h3>';
+  if(hasOverrides)h+='<button class="apl-reset" onclick="resetAplDmg(\''+sc+'\')">Reset</button>';
+  h+='</div>';
+  h+='<div class="note">Table 1A Scenario '+sc+' damage percentages are shown below. To override, enter a decimal value (e.g. 0.30 for 30%). These values also carry through to PML zone-based calculations. Leave blank to use the Table 1A default.</div>';
   zones.forEach(([z,zl])=>{
+    const zd=sys[z];
+    const editable=types.some(([k])=>zd[k]<1);
+    if(!editable)return;
     h+='<div class="apl-zone-hdr">'+zl+' Zone</div>';
     types.forEach(([k,kl])=>{
-      const base=sys[z][k];
-      if(base>=1){h+='<div class="apl-row"><label>'+kl+'</label><span class="pct-fixed">100%</span></div>';return;}
+      const base=zd[k];
+      if(base>=1){h+='<div class="apl-row"><label>'+kl+'</label><span style="color:var(--dim);font-size:11px">100% (fixed)</span></div>';return;}
       const oKey=sc+'_'+z+'_'+k;
-      const cur=S.aplDmgOverrides[oKey]!==undefined?S.aplDmgOverrides[oKey]:base;
-      const r=aplRange(base,S.aplUnlockRange);
-      const step=0.005;
-      const isOverridden=S.aplDmgOverrides[oKey]!==undefined;
+      const isOv=S.aplDmgOverrides[oKey]!==undefined;
+      const cur=isOv?S.aplDmgOverrides[oKey]:base;
+      const rMin=Math.max(base*0.6,0.01),rMax=Math.min(base*1.4,1);
       h+='<div class="apl-row">';
       h+='<label>'+kl+'</label>';
-      h+='<input type="range" min="'+r.min+'" max="'+r.max+'" step="'+step+'" value="'+cur+'" oninput="setAplDmg(\''+sc+'\',\''+z+'\',\''+k+'\',this.value)">';
-      h+='<input type="number" min="'+(S.aplUnlockRange?0.005:r.min)+'" max="'+(S.aplUnlockRange?1:r.max)+'" step="'+step+'" value="'+cur.toFixed(3)+'" onchange="setAplDmg(\''+sc+'\',\''+z+'\',\''+k+'\',this.value)">';
-      h+='<span class="pct-tag">'+(cur*100).toFixed(1)+'%'+(isOverridden?' *':'')+'</span>';
+      h+='<input type="number" step="0.005" min="0" max="1" value="'+(isOv?cur.toFixed(3):'')+'" placeholder="'+base.toFixed(3)+'" onchange="setAplDmg(\''+sc+'\',\''+z+'\',\''+k+'\',this.value||undefined)">';
+      h+='<span class="pct-range">'+pct(cur)+(isOv?' *':'')+' &nbsp;typical '+(rMin*100).toFixed(0)+'–'+(rMax*100).toFixed(0)+'%</span>';
       h+='</div>';
     });
   });
-  h+='<div style="margin-top:8px;font-size:10px;color:var(--dim)">* = adjusted from Table 1A default. Table 1A values: ';
-  const defaults=[];
-  zones.forEach(([z,zl])=>types.forEach(([k,kl])=>{const base=sys[z][k];if(base<1)defaults.push(zl+' '+kl+': '+pct(base))}));
-  h+=defaults.join(', ')+'</div></div>';
+  h+='</div>';
   return h;
 }
 
@@ -827,7 +812,7 @@ function rRev(){
   <table style="width:100%;border-collapse:collapse;font-size:12px">
   <thead><tr style="border-bottom:2px solid var(--border)"><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Rev</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Date</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Author</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Status</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Description</th></tr></thead>
   <tbody>
-  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.11</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Added APL damage percentage sliders on the APL tab, allowing engineers to adjust Table 1A damage percentages (building, equipment, inventory) for each zone (fire, water, smoke) within configurable bounds. Each percentage &lt; 100% gets a slider with range endpoints derived from ±40% of the Table 1A default value. Manual numeric input provided alongside each slider. "Unlock Range" checkbox removes the bounds constraint, allowing the full 0–100% range. Overrides are scenario-specific and persist across tab switches. Narratives annotate adjusted values with "(adjusted)". Reset button restores Table 1A defaults. Removed high-rise module (Figure 2, Table 2, FMDS 1-3 exterior fire spread, floor-by-floor MFL) from automated calculations — high-rise tab now displays a note directing engineers to perform high-rise loss estimates manually. Implemented FP 5020 Table 5 (Maximum % Building Damage that Defaults to Full Structure Loss): if Table 4 building damage percentage meets or exceeds the Table 5 condemnation threshold (based on building area and construction type), building damage defaults to 100% (full structure loss). Equipment and inventory remain at Table 4 percentages. Condemnation check shown in MFL narrative and results badge. Floor count field retained on Site Info for multi-story non-high-rise buildings.</td></tr>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.11</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Added APL damage percentage manual override on the APL tab, allowing engineers to adjust Table 1A damage percentages (building, equipment, inventory) for each zone (fire, water, smoke). Each percentage &lt; 100% shows an input field with the Table 1A default as placeholder and the typical range noted alongside. Overrides are scenario-specific and persist across tab switches. Adjusted values carry through to PML zone-based calculations. Narratives annotate adjusted values with "(adjusted)". Reset button restores Table 1A defaults. Removed high-rise module (Figure 2, Table 2, FMDS 1-3 exterior fire spread, floor-by-floor MFL) from automated calculations — high-rise tab now displays a note directing engineers to perform high-rise loss estimates manually. Implemented FP 5020 Table 5 (Maximum % Building Damage that Defaults to Full Structure Loss): if Table 4 building damage percentage meets or exceeds the Table 5 condemnation threshold (based on building area and construction type), building damage defaults to 100% (full structure loss). Equipment and inventory remain at Table 4 percentages. Condemnation check shown in MFL narrative and results badge. Floor count field retained on Site Info for multi-story non-high-rise buildings.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.10</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Unified PML logic: scenario-based 100% damage zones now apply for ALL APL=PML triggers (&lt;80% of design, FL/CL present, Table 1B deficiencies) — not only the deficient+inadequate alarms case. Previously these cases fell through to the broken Table 4 proportional fallback, producing PML values lower than APL. Now any apl.eq=true condition routes to Step 2: hypothetical APL scenario zone ratios scaled to design area × 1.5 with 100% damage throughout, capped at MFL. For &lt;80% design triggers, the boundary scenario (G for storage, E/F for non-storage, fire area = design area) is used so the PML scale factor stays near 1.5x — preventing the artificial spike that occurred when the fully-adequate scenario's small fixed fire area (e.g., 500 sqft for ESFR/Scenario H) created a 6x scale factor at 79% vs 1.5x at 80%. Additionally, inadequate alarms/FD/PEO (alarmsOk=false) now triggers Step 1 PML=MFL (delayed response); PML tab FD Response selector auto-locks to "Delayed" when alarmsOk=false. FL/CL toggle label updated to include "Flammable/Combustible Liquids" explicitly. Test suite updated and expanded to 242 passing tests.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.9</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Corrected PML logic for deficient sprinkler system with inadequate alarms/FD/PEO. Previously this condition forced PML = MFL (entire building at Table 4 percentages), which overcounted the loss. The PML now uses the hypothetical APL scenario that would apply if the deficiency did not exist, scales all three damage zones (fire, water, smoke) proportionally to the standard PML fire area (design area x 1.5), and applies 100% damage throughout — producing a scenario-grounded PML that is noticeably higher than APL but appropriately lower than MFL for most configurations. PML is capped at MFL if zone stacking causes it to exceed that threshold. Added hypAPLSc() helper to determine the hypothetical scenario. Narrative updated to show full zone-by-zone breakdown with scale factor. New tests added covering scenario selection, zone structure, damage percentages, ordering, and magnitude.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.8</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Removed hardcoded USD ($) currency symbol from all values, narratives, and UI labels. Added configurable currency dropdown on Site Info tab with 15 major world currencies (USD, EUR, GBP, JPY, CNY, CHF, CAD, AUD, HKD, SGD, SEK, NOK, DKK, KRW, BRL); default is no symbol per LPR convention. Added imperial/metric unit system toggle on Site Info tab. Area labels switch between sqft and m², distance labels switch between ft and m. All percentage-based calculations are unit-agnostic; MFL Table 3a separation thresholds are auto-converted to metric when selected. Default design area adjusts to 140 m² (metric) / 1,500 sqft (imperial). Narratives, UI badges, per-unit-area breakdowns, and input placeholders all reflect the selected unit and currency. No impact on calculation accuracy — existing saved data loads without issue.</td></tr>
