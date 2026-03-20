@@ -216,7 +216,11 @@ function calcPML(){
     return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   // Step 2: Any APL=PML trigger → hypothetical scenario zones at 100% damage, design area × 1.5
   if(apl.eq){
-    const hSc=hypAPLSc(),designA=pf(S.designArea)||defDA();
+    const designA=pf(S.designArea)||defDA();
+    // For <80% trigger: use boundary scenario (at exactly 80%) so scale factor ≈ 1.5x.
+    // For FL/CL, Table 1B, etc.: use fully-adequate scenario via hypAPLSc().
+    const is80=(pf(S.designPct)||100)>=80,isAdq=S.sprinklerAdequate==="adequate";
+    const hSc=(!is80&&!isAdq)?(S.isStorage?"G":(S.isSensitive?"F":"E")):hypAPLSc();
     const aplEqRsn=apl.R.filter(r=>r.toLowerCase().includes("apl = pml")).join("; ")||"Protection deficiencies";
     if(hSc&&APL_SC[hSc]){const s=APL_SC[hSc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
       const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
@@ -1954,7 +1958,7 @@ describe('PML: any APL=PML trigger uses scenario-based 100% damage zones', () =>
   test('PML fire zone area equals designArea x 1.5 (standard pmlFA)', () => {
     defNoAlarmSetup();
     const pml = calcPML();
-    // hypSc=A (ordinary non-storage), aplFireA=700; sf=3000/700; fire pmlA=round(700*sf)=3000 always
+    // <80% trigger → boundary scenario E (non-storage, non-sensitive); fire.a="design"=2000; sf=1.5; pmlA=3000
     expect(pml.zones[0].pmlA).toBe(3000);
   });
 
