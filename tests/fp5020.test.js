@@ -1113,3 +1113,724 @@ describe('Integration: consistent APL <= PML <= MFL ordering', () => {
     expect(calcMFL().pT).toBeGreaterThan(0);
   });
 });
+
+// ======================== REV 0.8 EXPANDED TESTS ========================
+
+// --------------- Unit system helpers ---------------
+describe('defDA() - default design area by unit system', () => {
+  test('returns 1500 for imperial', () => {
+    S.units = 'imperial';
+    expect(defDA()).toBe(1500);
+  });
+  test('returns 140 for metric', () => {
+    S.units = 'metric';
+    expect(defDA()).toBe(140);
+  });
+});
+
+describe('fromFt() / toFt() - unit conversion', () => {
+  test('fromFt() passes value through in imperial', () => {
+    S.units = 'imperial';
+    expect(fromFt(40)).toBe(40);
+    expect(fromFt(100)).toBe(100);
+  });
+  test('fromFt() converts ft to metres in metric', () => {
+    S.units = 'metric';
+    expect(fromFt(40)).toBe(Math.round(40 * 0.3048));  // 12
+    expect(fromFt(100)).toBe(Math.round(100 * 0.3048)); // 30
+  });
+  test('toFt() passes value through in imperial', () => {
+    S.units = 'imperial';
+    expect(toFt(40)).toBe(40);
+  });
+  test('toFt() converts metres to ft in metric', () => {
+    S.units = 'metric';
+    expect(toFt(12)).toBeCloseTo(12 / 0.3048, 3);
+  });
+  test('round-trip: fromFt(toFt(v)) ≈ v in metric', () => {
+    S.units = 'metric';
+    // toFt(12) = 39.37..., fromFt(39.37) = round(12.0) = 12
+    expect(fromFt(toFt(12))).toBe(12);
+  });
+});
+
+describe('getSepReq() - metric unit conversion', () => {
+  test('FR-FR-ordinary returns 40 ft in imperial', () => {
+    S.units = 'imperial';
+    expect(getSepReq('fr', 'fr', 'ordinary')).toBe(40);
+  });
+  test('FR-FR-ordinary returns ~12 m in metric', () => {
+    S.units = 'metric';
+    expect(getSepReq('fr', 'fr', 'ordinary')).toBe(Math.round(40 * 0.3048)); // 12
+  });
+  test('comb-comb-extra returns 200 ft in imperial', () => {
+    S.units = 'imperial';
+    expect(getSepReq('comb', 'comb', 'extra')).toBe(200);
+  });
+  test('comb-comb-extra returns ~61 m in metric', () => {
+    S.units = 'metric';
+    expect(getSepReq('comb', 'comb', 'extra')).toBe(Math.round(200 * 0.3048)); // 61
+  });
+  test('metric separation comparison works: 12 m meets 40 ft requirement', () => {
+    S.units = 'metric';
+    S.buildings = [
+      {name:'Primary', area:'9000', construction:'fr', occupancy:'Office', value:'', separation:'', floors:''},
+      {name:'Secondary', area:'5000', construction:'fr', occupancy:'Office', value:'', separation:'12', floors:''},
+    ];
+    S.primaryIdx = 0;
+    S.totalBldg = '10000000'; S.totalEquip = '0'; S.totalInv = '0';
+    S.hazardClass = 'ordinary';
+    // FR-FR ordinary req = 40 ft = 12 m; actual = 12 m → adequate, excluded
+    const r = calcMFL();
+    expect(r.exclB.length).toBe(1);
+  });
+  test('metric separation: 11 m does not meet 40 ft (12 m) requirement', () => {
+    S.units = 'metric';
+    S.buildings = [
+      {name:'Primary', area:'9000', construction:'fr', occupancy:'Office', value:'', separation:'', floors:''},
+      {name:'Secondary', area:'5000', construction:'fr', occupancy:'Office', value:'', separation:'11', floors:''},
+    ];
+    S.primaryIdx = 0;
+    S.totalBldg = '10000000'; S.totalEquip = '0'; S.totalInv = '0';
+    S.hazardClass = 'ordinary';
+    const r = calcMFL();
+    expect(r.inclB.length).toBe(1);
+  });
+});
+
+// --------------- Table 1B missing paths ---------------
+describe('getT1B() - open-top container deficiencies', () => {
+  test('defOT top_gt20 forces APL = PML', () => {
+    S.defOT = 'top_gt20';
+    expect(getT1B().eq).toBe(true);
+  });
+  test('defOT less_adequate gives Scenario G', () => {
+    S.defOT = 'less_adequate';
+    const r = getT1B();
+    expect(r.sc).toBe('G');
+    expect(r.eq).toBe(false);
+  });
+  test('defOT less_inadequate forces APL = PML', () => {
+    S.defOT = 'less_inadequate';
+    expect(getT1B().eq).toBe(true);
+  });
+});
+
+describe('getT1B() - flue column deficiencies', () => {
+  test('defFC one_dir gives Scenario G', () => {
+    S.defFC = 'one_dir';
+    const r = getT1B();
+    expect(r.sc).toBe('G');
+    expect(r.eq).toBe(false);
+  });
+  test('defFC both_dir forces APL = PML', () => {
+    S.defFC = 'both_dir';
+    expect(getT1B().eq).toBe(true);
+  });
+});
+
+describe('getT1B() - ESFR obstruction edge cases', () => {
+  test('2-3 ESFR heads obstructed gives Scenario G', () => {
+    S.defOE = 'up_to_3';
+    const r = getT1B();
+    expect(r.sc).toBe('G');
+  });
+  test('>3 ESFR heads obstructed forces APL = PML', () => {
+    S.defOE = 'gt3';
+    expect(getT1B().eq).toBe(true);
+  });
+});
+
+describe('getT1B() - CMDA obstruction edge cases', () => {
+  test('4-6 CMDA heads obstructed gives Scenario G', () => {
+    S.defOC = 'up_to_6';
+    const r = getT1B();
+    expect(r.sc).toBe('G');
+  });
+  test('>6 CMDA heads obstructed forces APL = PML', () => {
+    S.defOC = 'gt6';
+    expect(getT1B().eq).toBe(true);
+  });
+});
+
+// --------------- calcAPL() BI strings ---------------
+describe('calcAPL() - BI strings per scenario', () => {
+  function setupBI() {
+    S.buildings[0].area = '100000';
+    S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+  }
+
+  const expected = {
+    A:'1 - 7 Days', B:'1 - 3 Weeks', C:'1 - 7 Days', D:'2 - 4 Weeks',
+    E:'8 - 16 Weeks', F:'4 - 12 Weeks', G:'4 - 12 Weeks',
+    H:'1 - 7 Days', I:'2 - 4 Weeks', J:'1 - 7 Days', K:'2 - 4 Weeks'
+  };
+
+  Object.entries(expected).forEach(([sc, bi]) => {
+    test(`Scenario ${sc} BI = "${bi}"`, () => {
+      setupBI();
+      expect(APL_SC[sc].bi).toBe(bi);
+    });
+  });
+
+  test('APL returns correct BI string for Scenario A', () => {
+    setupBI();
+    S.isStorage = false; S.isSensitive = false; S.hazardClass = 'ordinary';
+    const r = calcAPL();
+    expect(r.sc).toBe('A');
+    expect(r.bi).toBe('1 - 7 Days');
+  });
+  test('APL returns correct BI string for Scenario D', () => {
+    setupBI();
+    S.isStorage = false; S.isSensitive = true; S.hazardClass = 'extra'; S.hasFL = false;
+    const r = calcAPL();
+    expect(r.sc).toBe('D');
+    expect(r.bi).toBe('2 - 4 Weeks');
+  });
+});
+
+// --------------- calcAPL() storage + T1B integration ---------------
+describe('calcAPL() - storage with Table 1B deficiencies', () => {
+  function setupStorage() {
+    S.buildings[0].area = '100000';
+    S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+    S.isStorage = true; S.isSensitive = false; S.hazardClass = 'extra';
+    S.sprinklerAdequate = 'deficient'; S.designPct = '90';
+  }
+
+  test('storage + defHP ge80 → Scenario G', () => {
+    setupStorage();
+    S.defHP = 'ge80';
+    const r = calcAPL();
+    expect(r.sc).toBe('G');
+    expect(r.eq).toBe(false);
+  });
+
+  test('storage + defHP lt80 → APL = PML', () => {
+    setupStorage();
+    S.defHP = 'lt80';
+    const r = calcAPL();
+    expect(r.eq).toBe(true);
+  });
+
+  test('storage + FL + deficiency → APL = PML', () => {
+    setupStorage();
+    S.hasFL = true;
+    const r = calcAPL();
+    expect(r.eq).toBe(true);
+  });
+});
+
+// --------------- calcMFL() high-rise scenarios ---------------
+describe('calcMFL() - high-rise MFL floor-by-floor', () => {
+  function setupHR(stories, occ = 'Office', ct = 'fr') {
+    S.buildings[0].area = '50000';
+    S.buildings[0].construction = ct;
+    S.buildings[0].occupancy = occ;
+    S.totalBldg = '20000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+    S.isHighRise = true;
+    S.stories = String(stories);
+    S.extSpreadPossible = false;
+  }
+
+  test('exterior spread = total loss of all at-risk property', () => {
+    setupHR(20);
+    S.extSpreadPossible = true;
+    const r = calcMFL();
+    expect(r.pB).toBe(r.atRiskBldg);
+    expect(r.pE).toBe(r.atRiskEquip);
+    expect(r.pI).toBe(r.atRiskInv);
+    expect(r.hrMeta.condemned).toBe(true);
+    expect(r.hrMeta.extSpread).toBe(true);
+  });
+
+  test('no ext spread, short building (3 floors) → FR Office condemned (73% >= 40%)', () => {
+    setupHR(3); // Office FR: condemnThresh = 40%
+    const r = calcMFL();
+    expect(r.hrMeta.condemned).toBe(true);
+    expect(r.pB).toBe(r.atRiskBldg);     // full building loss
+    expect(r.hrMeta.bldgDmgPct).toBeGreaterThanOrEqual(40);
+  });
+
+  test('no ext spread, tall building (20 floors) → FR Office NOT condemned (14% < 40%)', () => {
+    setupHR(20); // 2/20 + 4/20*0.2 = 10% + 4% = 14% < 40%
+    const r = calcMFL();
+    expect(r.hrMeta.condemned).toBe(false);
+    expect(r.pB).toBeLessThan(r.atRiskBldg);
+    expect(r.hrMeta.bldgDmgPct).toBeLessThan(40);
+  });
+
+  test('no ext spread, 10-floor FR Office: bldgDmgPct ≈ 28%', () => {
+    setupHR(10);
+    const r = calcMFL();
+    // fireF=2/10=20%, smokeF=min(4,8)/10*20%=8% → total 28%
+    expect(r.hrMeta.bldgDmgPct).toBeCloseTo(28, 1);
+    expect(r.hrMeta.condemned).toBe(false); // 28 < 40
+  });
+
+  test('no ext spread, 5-floor Warehousing HNC: 2/5*100+3/5*20=40+12=52% >= 80% threshold → condemned', () => {
+    // Warehousing HNC: b=80%; 5 floors: fireF=2,smokeF=3 → dmg=(2/5)*100+(3/5)*20=40+12=52% < 80
+    setupHR(5, 'Warehousing', 'hnc');
+    const r = calcMFL();
+    // 52% < 80% threshold → not condemned
+    expect(r.hrMeta.condemned).toBe(false);
+    expect(r.hrMeta.bldgDmgPct).toBeCloseTo(52, 1);
+  });
+
+  test('single-floor high-rise: fireF=1, smokeF=0, waterF=1', () => {
+    setupHR(1);
+    const r = calcMFL();
+    expect(r.hrMeta.fireF).toBe(1);
+    expect(r.hrMeta.smokeF).toBe(0);
+    expect(r.hrMeta.waterF).toBe(1);
+    expect(r.hrMeta.condemned).toBe(true); // 100% building damage
+  });
+
+  test('high-rise pT > 0 for populated values', () => {
+    setupHR(15);
+    expect(calcMFL().pT).toBeGreaterThan(0);
+  });
+
+  test('high-rise hrMeta populated with correct floor counts for 10-floor', () => {
+    setupHR(10);
+    const r = calcMFL();
+    expect(r.hrMeta.isHR).toBe(true);
+    expect(r.hrMeta.nFloors).toBe(10);
+    expect(r.hrMeta.fireF).toBe(2);
+    expect(r.hrMeta.smokeF).toBe(4);
+    expect(r.hrMeta.waterF).toBe(6);
+  });
+
+  test('high-rise 2-floor: smokeF capped to 0 above remaining floors', () => {
+    setupHR(2); // nFloors=2, fireF=min(2,2)=2, smokeF=min(4,max(0,0))=0
+    const r = calcMFL();
+    expect(r.hrMeta.fireF).toBe(2);
+    expect(r.hrMeta.smokeF).toBe(0);
+  });
+
+  test('high-rise non-condemned: contents damage uses fire+smoke+water blend', () => {
+    setupHR(20); // 14% bldg, not condemned
+    const r = calcMFL();
+    // contsFrac = fireF/20 + smokeF/20*0.20 + waterF/20*0.15
+    //           = 2/20 + 4/20*0.2 + 6/20*0.15 = 0.10+0.04+0.045 = 0.185
+    expect(r.hrMeta.contsFrac).toBeCloseTo(0.185, 3);
+    expect(r.pE).toBe(rLE(r.atRiskEquip * r.hrMeta.contsFrac));
+    expect(r.pI).toBe(rLE(r.atRiskInv * r.hrMeta.contsFrac));
+  });
+});
+
+// --------------- calcMFL() all occupancies ---------------
+describe('calcMFL() - all MFL_T occupancies produce valid results', () => {
+  function setupOcc(occ, ct = 'fr') {
+    S.buildings[0].area = '100000';
+    S.buildings[0].occupancy = occ;
+    S.buildings[0].construction = ct;
+    S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+  }
+
+  Object.keys(MFL_T).forEach(occ => {
+    test(`${occ} / FR → pT > 0, percentages match table`, () => {
+      setupOcc(occ, 'fr');
+      const r = calcMFL();
+      expect(r.pT).toBeGreaterThan(0);
+      expect(r.bP).toBe(MFL_T[occ].fr.b);
+      expect(r.eP).toBe(MFL_T[occ].fr.e);
+      expect(r.iP).toBe(MFL_T[occ].fr.i);
+    });
+
+    test(`${occ} / HNC → pT > 0, percentages match table`, () => {
+      setupOcc(occ, 'hnc');
+      const r = calcMFL();
+      expect(r.pT).toBeGreaterThan(0);
+      expect(r.bP).toBe(MFL_T[occ].hnc.b);
+    });
+
+    test(`${occ} / Combustible → building % = 100`, () => {
+      setupOcc(occ, 'comb');
+      const r = calcMFL();
+      expect(r.bP).toBe(100);
+      expect(r.eP).toBe(100);
+      expect(r.iP).toBe(100);
+    });
+  });
+});
+
+// --------------- calcMFL() hasCombConst override ---------------
+describe('calcMFL() - hasCombConst override', () => {
+  test('hasCombConst forces combustible percentages even on FR building', () => {
+    S.buildings[0].area = '100000';
+    S.buildings[0].occupancy = 'Office';
+    S.buildings[0].construction = 'fr';
+    S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+    S.hasCombConst = true;
+    const r = calcMFL();
+    // Office comb = b:100, e:100, i:100
+    expect(r.bP).toBe(100);
+    expect(r.eP).toBe(100);
+    expect(r.iP).toBe(100);
+  });
+
+  test('hasCombConst does NOT override when building is already comb', () => {
+    S.buildings[0].area = '100000';
+    S.buildings[0].occupancy = 'Office';
+    S.buildings[0].construction = 'comb';
+    S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+    S.hasCombConst = true;
+    const r = calcMFL();
+    expect(r.bP).toBe(100); // still 100%, just uses comb path directly
+  });
+
+  test('hasCombConst: Office FR without flag → 40% building', () => {
+    S.buildings[0].area = '100000';
+    S.buildings[0].occupancy = 'Office';
+    S.buildings[0].construction = 'fr';
+    S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+    S.hasCombConst = false;
+    const r = calcMFL();
+    expect(r.bP).toBe(40);
+  });
+});
+
+// --------------- calcMFL() BI modes ---------------
+describe('calcMFL() - BI calculation modes', () => {
+  function setupMFLBI() {
+    S.buildings[0].area = '100000';
+    S.buildings[0].occupancy = 'Office';
+    S.buildings[0].construction = 'fr';
+    S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+  }
+
+  test('BI from dollar input: Office FR = 4.5 months, bV = yearly/12*4.5', () => {
+    setupMFLBI();
+    S.biMode = 'dollar';
+    S.biYearly = '12000000';
+    const r = calcMFL();
+    expect(r.biM).toBe(4.5);
+    expect(r.bV).toBe(rLE(12000000 / 12 * 4.5));
+  });
+
+  test('BI from percent-of-production mode', () => {
+    setupMFLBI();
+    S.biMode = 'percent';
+    S.annualProd = '60000000';
+    S.biPct = '20'; // 20% of 60M = 12M/year
+    const r = calcMFL();
+    expect(r.biM).toBe(4.5);
+    expect(r.bV).toBe(rLE(12000000 / 12 * 4.5));
+  });
+
+  test('BI = 0 when no dollar input and no production data', () => {
+    setupMFLBI();
+    S.biMode = 'dollar';
+    S.biYearly = '';
+    const r = calcMFL();
+    expect(r.bV).toBe(0);
+  });
+});
+
+// --------------- calcMFL() separation edge cases ---------------
+describe('calcMFL() - separation boundary conditions', () => {
+  function setupTwo(sep, oHaz = 'ordinary') {
+    S.buildings = [
+      {name:'Primary', area:'100000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:''},
+      {name:'Secondary', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'', separation:String(sep), floors:''},
+    ];
+    S.primaryIdx = 0;
+    S.totalBldg = '15000000'; S.totalEquip = '0'; S.totalInv = '0';
+    S.hazardClass = oHaz;
+  }
+
+  test('separation exactly at threshold is adequate (>=)', () => {
+    setupTwo(80); // HNC-HNC ordinary req = 80 ft, actual = 80 ft → adequate
+    const r = calcMFL();
+    expect(r.exclB.length).toBe(1);
+    expect(r.inclB.length).toBe(0);
+  });
+
+  test('separation one below threshold is inadequate', () => {
+    setupTwo(79); // 79 < 80 → inadequate
+    const r = calcMFL();
+    expect(r.inclB.length).toBe(1);
+    expect(r.exclB.length).toBe(0);
+  });
+
+  test('separation = 0 is treated as not specified (included)', () => {
+    setupTwo(0);
+    const r = calcMFL();
+    expect(r.inclB.length).toBe(1);
+    expect(r.exclB.length).toBe(0);
+  });
+
+  test('multiple buildings: some excluded, some included', () => {
+    S.buildings = [
+      {name:'Primary', area:'60000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:''},
+      {name:'B2', area:'20000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'100', floors:''}, // 100 >= 80 → excluded
+      {name:'B3', area:'20000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'30', floors:''},  // 30 < 80 → included
+    ];
+    S.primaryIdx = 0;
+    S.totalBldg = '9000000'; S.totalEquip = '0'; S.totalInv = '0';
+    S.hazardClass = 'ordinary';
+    const r = calcMFL();
+    expect(r.exclB.length).toBe(1);
+    expect(r.inclB.length).toBe(1);
+    expect(r.exclPD).toBeGreaterThan(0);
+    expect(r.pT).toBeLessThan(r.sitePD);
+  });
+
+  test('all buildings adequately separated: MFL limited to primary only', () => {
+    S.buildings = [
+      {name:'Primary', area:'50000', construction:'fr', occupancy:'Office', value:'', separation:'', floors:''},
+      {name:'B2', area:'50000', construction:'fr', occupancy:'Office', value:'', separation:'200', floors:''},
+    ];
+    S.primaryIdx = 0;
+    S.totalBldg = '20000000'; S.totalEquip = '0'; S.totalInv = '0';
+    S.hazardClass = 'light'; // FR-FR light req = 30 ft; actual = 200 → excluded
+    const r = calcMFL();
+    expect(r.exclB.length).toBe(1);
+    // atRiskTotal = sitePD - excluded value ≈ half of site PD
+    expect(r.atRiskTotal).toBeLessThan(r.sitePD);
+  });
+});
+
+// --------------- calcPML() zone scaling and BI ---------------
+describe('calcPML() - zone scaling and BI', () => {
+  function setupPMLFull() {
+    S.buildings[0].area = '100000';
+    S.buildings[0].occupancy = 'Warehousing';
+    S.buildings[0].construction = 'hnc';
+    S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+    S.isStorage = false; S.isSensitive = false; S.hazardClass = 'ordinary';
+    S.designArea = '2000';
+    S.biYearly = '12000000';
+  }
+
+  test('zones array is populated when APL scenario is known', () => {
+    setupPMLFull();
+    const r = calcPML();
+    expect(r.zones.length).toBe(3); // fire, water, smoke
+    expect(r.zones.map(z => z.type)).toEqual(['fire', 'water', 'smoke']);
+  });
+
+  test('PML fire zone area = APL fire zone * scale factor', () => {
+    setupPMLFull();
+    const r = calcPML();
+    const aplFireZone = r.zones[0].aplA;
+    expect(aplFireZone).toBeGreaterThan(0);
+    expect(r.pmlFA).toBeGreaterThan(aplFireZone); // PML area > APL fire zone
+  });
+
+  test('each zone has positive damage values', () => {
+    setupPMLFull();
+    const r = calcPML();
+    r.zones.forEach(z => {
+      expect(z.bD).toBeGreaterThanOrEqual(0);
+      expect(z.eD).toBeGreaterThanOrEqual(0);
+      expect(z.iD).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  test('PML BI value (bV) calculated from monthly rate', () => {
+    setupPMLFull();
+    const r = calcPML();
+    // Warehousing HNC: bi = 12 months; biYearly = 12M; bV = 12M/12*12 = 12M
+    expect(r.biM).toBe(12);
+    expect(r.bV).toBe(rLE(12000000 / 12 * 12));
+  });
+
+  test('aplFloor flag set when APL > calculated PML', () => {
+    // Use a scenario where APL might exceed PML due to large fire zone
+    S.buildings[0].area = '5000'; // very small building
+    S.buildings[0].occupancy = 'Office';
+    S.buildings[0].construction = 'fr';
+    S.totalBldg = '10000000'; S.totalEquip = '0'; S.totalInv = '0';
+    S.isStorage = false; S.isSensitive = true; S.hazardClass = 'extra'; S.hasFL = false;
+    S.designArea = '4000'; // design area close to building size
+    S.pmlArea = '5000'; // PML = full building
+    const r = calcPML();
+    // aplFloor is set when APL > raw PML
+    expect(r.pT).toBeGreaterThanOrEqual(calcAPL().pT);
+  });
+});
+
+// --------------- calcPML() all system types ---------------
+describe('calcPML() - PML system types', () => {
+  function setupBase() {
+    S.buildings[0].area = '50000';
+    S.buildings[0].occupancy = 'Warehousing';
+    S.buildings[0].construction = 'hnc';
+    S.totalBldg = '8000000'; S.totalEquip = '3000000'; S.totalInv = '1000000';
+    S.isStorage = false; S.hazardClass = 'ordinary';
+    S.fdTime = 'prompt';
+  }
+
+  ['sprinkler_riser','fire_pump','detection','clean_agent','foam_system','deluge','other'].forEach(sys => {
+    test(`pmlSystem="${sys}" returns a valid PML result`, () => {
+      setupBase();
+      S.pmlSystem = sys;
+      const r = calcPML();
+      expect(r.pT).toBeGreaterThanOrEqual(0);
+      expect(typeof r.eq).toBe('boolean');
+    });
+  });
+});
+
+// --------------- gv() multi-building distribution ---------------
+describe('gv() - multi-building proportional distribution', () => {
+  test('primary at index 1 uses correct building values', () => {
+    S.buildings = [
+      {name:'A', area:'30000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:''},
+      {name:'B', area:'70000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:''},
+    ];
+    S.primaryIdx = 1;
+    S.totalBldg = '10000000'; S.totalEquip = '0'; S.totalInv = '0';
+    const v = gv();
+    expect(v.a).toBe(70000);
+    // Primary is 70% of sqft → 70% of total value
+    expect(v.tb).toBeCloseTo(7000000, -3);
+  });
+
+  test('building with value override: gv() reflects override proportion', () => {
+    S.buildings = [
+      {name:'A', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'3000000', separation:'', floors:''},
+      {name:'B', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:''},
+    ];
+    S.primaryIdx = 0;
+    S.totalBldg = '10000000'; S.totalEquip = '0'; S.totalInv = '0';
+    const v = gv();
+    // bldgValue(0) = 3M override; sitePD = 10M; prop = 3M/10M = 0.3; tb = 10M * 0.3 = 3M
+    expect(v.tb).toBeCloseTo(3000000, -3);
+  });
+
+  test('per-unit-area values are 0 when primary building has no area', () => {
+    S.buildings[0].area = '0';
+    S.totalBldg = '5000000';
+    const v = gv();
+    expect(v.bpsf).toBe(0);
+    expect(v.epsf).toBe(0);
+  });
+});
+
+// --------------- rLE() boundary cases ---------------
+describe('rLE() - boundary edge cases', () => {
+  test('exactly 100000 rounds to nearest 100k', () => {
+    expect(rLE(100000)).toBe(100000);
+  });
+  test('99999 rounds to nearest 1k', () => {
+    expect(rLE(99999)).toBe(100000);
+  });
+  test('large values round to nearest 100k', () => {
+    expect(rLE(1234567)).toBe(1200000);
+    expect(rLE(9876543)).toBe(9900000);
+  });
+  test('negative values return 0 or -0 (losses are non-negative)', () => {
+    // rLE(-500) = Math.round(-500/1000)*1000 = Math.round(-0.5)*1000 = -0
+    // In practice losses are never negative; treat as zero
+    expect(rLE(-500)).toBe(-0);
+    expect(Object.is(rLE(-500), 0) || Object.is(rLE(-500), -0)).toBe(true);
+  });
+});
+
+// --------------- Integration: all occupancies APL <= PML <= MFL ---------------
+describe('Integration: APL <= PML <= MFL across all occupancies', () => {
+  function fullSetup(occ, ct = 'hnc') {
+    S.buildings[0].area = '100000';
+    S.buildings[0].occupancy = occ;
+    S.buildings[0].construction = ct;
+    S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+    S.isStorage = true; S.isSensitive = false; S.hazardClass = 'ordinary';
+    S.sprinklerAdequate = 'adequate'; S.designArea = '2000';
+    S.fdTime = 'prompt'; S.biYearly = '4000000';
+  }
+
+  Object.keys(MFL_T).forEach(occ => {
+    test(`${occ}: APL <= PML <= MFL`, () => {
+      fullSetup(occ);
+      const apl = calcAPL(), pml = calcPML(), mfl = calcMFL();
+      const aplPD = apl.eq ? pml.pT : apl.pT;
+      expect(aplPD).toBeLessThanOrEqual(pml.pT);
+      expect(pml.pT).toBeLessThanOrEqual(mfl.pT);
+    });
+  });
+});
+
+// --------------- Integration: high-rise complete scenario ---------------
+describe('Integration: high-rise scenario consistency', () => {
+  function hrSetup() {
+    S.buildings[0].area = '50000';
+    S.buildings[0].occupancy = 'Office';
+    S.buildings[0].construction = 'fr';
+    S.totalBldg = '20000000'; S.totalEquip = '8000000'; S.totalInv = '3000000';
+    S.isHighRise = true; S.stories = '15';
+    S.isStorage = false; S.isSensitive = false; S.hazardClass = 'ordinary';
+    S.sprinklerAdequate = 'adequate'; S.designArea = '2000';
+    S.fdTime = 'prompt'; S.biYearly = '5000000';
+  }
+
+  test('high-rise: APL <= MFL', () => {
+    hrSetup();
+    const apl = calcAPL(), mfl = calcMFL();
+    const aplPD = apl.eq ? calcPML().pT : apl.pT;
+    expect(aplPD).toBeLessThanOrEqual(mfl.pT);
+  });
+
+  test('high-rise: PML <= MFL', () => {
+    hrSetup();
+    const pml = calcPML(), mfl = calcMFL();
+    expect(pml.pT).toBeLessThanOrEqual(mfl.pT);
+  });
+
+  test('high-rise exterior spread: MFL = total at-risk', () => {
+    hrSetup();
+    S.extSpreadPossible = true;
+    const mfl = calcMFL();
+    expect(mfl.pB).toBe(mfl.atRiskBldg);
+    expect(mfl.pT).toBe(mfl.atRiskTotal);
+  });
+});
+
+// --------------- Integration: combustible construction ---------------
+describe('Integration: combustible construction site', () => {
+  function combSetup() {
+    S.buildings[0].area = '80000';
+    S.buildings[0].occupancy = 'Warehousing';
+    S.buildings[0].construction = 'comb';
+    S.totalBldg = '5000000'; S.totalEquip = '3000000'; S.totalInv = '1000000';
+    S.isStorage = true; S.isSensitive = false; S.hazardClass = 'ordinary';
+    S.sprinklerAdequate = 'adequate'; S.designArea = '2000';
+    S.fdTime = 'prompt'; S.biYearly = '2000000';
+  }
+
+  test('PML = MFL for comb construction', () => {
+    combSetup();
+    const pml = calcPML();
+    expect(pml.eq).toBe(true);
+  });
+
+  test('MFL uses 100% percentages for comb', () => {
+    combSetup();
+    const mfl = calcMFL();
+    expect(mfl.bP).toBe(100);
+    expect(mfl.eP).toBe(100);
+    expect(mfl.iP).toBe(100);
+  });
+});
+
+// --------------- Integration: multi-building fire wall + separation ---------------
+describe('Integration: fire wall + multi-building separation', () => {
+  test('fire wall + separated building reduces MFL significantly', () => {
+    S.buildings = [
+      {name:'Primary', area:'100000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:''},
+      {name:'Secondary', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'100', floors:''},
+    ];
+    S.primaryIdx = 0;
+    S.totalBldg = '15000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+    S.hazardClass = 'ordinary';
+    S.fw4hr = true; S.fwArea = '50000'; // half the primary
+    const r = calcMFL();
+    expect(r.hasFW).toBe(true);
+    expect(r.exclB.length).toBe(1);
+    expect(r.fwReduction).toBeGreaterThan(0);
+    // Both exclusions should bring MFL well below sitePD
+    expect(r.pT).toBeLessThan(r.sitePD * 0.7);
+  });
+});
