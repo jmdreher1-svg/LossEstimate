@@ -119,9 +119,13 @@ const MFL_SEP={fr:{fr:{l:30,o:40,e:60},nc:{l:40,o:50,e:80},comb:{l:50,o:80,e:100
 const CL={fr:"Fire Resistive",hnc:"Heavy Noncombustible",lnc:"Light Noncombustible",comb:"Combustible"};
 const SYS_LABELS={sprinkler_riser:"sprinkler riser/control valve",fire_pump:"fire pump",detection:"detection/alarm system",clean_agent:"clean agent system",foam_system:"foam system",deluge:"deluge system",other:"fire protection system"};
 
+// CURRENCIES — top 15 by global usage
+const CURRENCIES=[["","— None —"],["$","USD ($)"],["€","EUR (€)"],["£","GBP (£)"],["¥","JPY (¥)"],["¥","CNY (¥)"],["CHF","CHF"],["C$","CAD (C$)"],["A$","AUD (A$)"],["HK$","HKD (HK$)"],["S$","SGD (S$)"],["kr","SEK (kr)"],["kr","NOK (kr)"],["kr","DKK (kr)"],["₩","KRW (₩)"],["R$","BRL (R$)"]];
+
 // STATE
 const S={
   tab:0,siteName:"",accountNo:"",surveyDate:"",
+  currency:"",units:"imperial",
   // Buildings array: each has name, area, construction, occupancy, value (override), separation (for MFL)
   buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:""}],
   primaryIdx:0, // which building is the primary fire area
@@ -143,9 +147,18 @@ loadState();
 
 // HELPERS
 function pf(s){return parseFloat(s)||0}
-function fmt(v){if(!v||isNaN(v))return"$0";if(v>=1e9)return"$"+(v/1e9).toFixed(2)+"B";if(v>=1e6)return"$"+(v/1e6).toFixed(2)+"M";if(v>=1e3)return"$"+(v/1e3).toFixed(1)+"K";return"$"+Math.round(v).toLocaleString()}
-function fmtF(v){if(!v||isNaN(v))return"$0";return"$"+Math.round(v).toLocaleString()}
+function cs(){return S.currency||""}
+function aU(){return S.units==="metric"?"m²":"sqft"}
+function dU(){return S.units==="metric"?"m":"ft"}
+function paU(){return S.units==="metric"?"sq m":"sq ft"}
+function fmt(v){const c=cs();if(!v||isNaN(v))return c+"0";if(v>=1e9)return c+(v/1e9).toFixed(2)+"B";if(v>=1e6)return c+(v/1e6).toFixed(2)+"M";if(v>=1e3)return c+(v/1e3).toFixed(1)+"K";return c+Math.round(v).toLocaleString()}
+function fmtF(v){const c=cs();if(!v||isNaN(v))return c+"0";return c+Math.round(v).toLocaleString()}
 function fN(v){return v.toLocaleString()}
+// Unit conversion: user-entered values are in the selected unit system.
+// Calculations are unit-agnostic (percentage-based), but MFL_SEP thresholds are in ft.
+function toFt(v){return S.units==="metric"?v/0.3048:v}
+function fromFt(v){return S.units==="metric"?Math.round(v*0.3048):v}
+function defDA(){return S.units==="metric"?140:1500} // default design area (1500 sqft ≈ 140 m²)
 function rLE(v){if(v<100000)return Math.round(v/1000)*1000;return Math.round(v/100000)*100000}
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function pct(v){return(v*100).toFixed(0)+"%"}
@@ -184,7 +197,8 @@ function gv(){
 
 function getSepReq(origC,expC,haz){
   const ok=origC==="fr"?"fr":origC==="comb"?"comb":"nc",ek=expC==="fr"?"fr":expC==="comb"?"comb":"nc",hk=haz==="light"?"l":haz==="ordinary"?"o":"e";
-  return MFL_SEP[ek]?.[ok]?.[hk]||100;
+  const ftVal=MFL_SEP[ek]?.[ok]?.[hk]||100;
+  return fromFt(ftVal);
 }
 
 // TABLE 1B
@@ -223,7 +237,7 @@ function calcAPL(){
   else{R.push("Non-storage (Figure "+(S.isSensitive?"1C":"1B")+")");if(isAdq&&!hasDef){R.push("Sprinkler system reliable and fully adequate");if(S.isSensitive){sc=isLO?"B":S.hasFL?"F":"D";}else{sc=isLO?"A":S.hasFL?"E":"C";}R.push("Scenario "+sc);}else{R.push(isAdq?"Adequate but deficiencies":"Not fully adequate");if(!is80&&!isAdq){eq=true;R.push("Less than 80% of design, APL = PML");}else if(S.hasFL){eq=true;R.push("FL/CL present, APL = PML");}else if(!S.alarmsOk&&!isAdq){eq=true;R.push("Alarms/FD/PEO inadequate, APL = PML");}else if(hasDef){const t=getT1B();R.push(t.rsn);if(t.eq)eq=true;else if(t.sc)sc=t.sc;else sc=S.isSensitive?"F":"E";}else{sc=S.isSensitive?"F":"E";R.push("Scenario "+sc);}}}
   let pB=0,pE=0,pI=0,bi="";
   if(sc&&APL_SC[sc]&&v.a>0){const s=APL_SC[sc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;bi=s.bi;
-    const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(pf(S.designArea)||1500,v.a);if(x==="2x")return Math.min((pf(S.designArea)||1500)*2,v.a);if(x==="5x")return Math.min((pf(S.designArea)||1500)*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
+    const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(pf(S.designArea)||defDA(),v.a);if(x==="2x")return Math.min((pf(S.designArea)||defDA())*2,v.a);if(x==="5x")return Math.min((pf(S.designArea)||defDA())*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
     ["fire","water","smoke"].forEach(t=>{const d=sys[t],ar=rA(d.a);pB+=(v.tb/v.a)*d.b*ar;pE+=(v.te/v.a)*d.e*ar;pI+=(v.ti/v.a)*d.i*ar;});}
   return{sc,eq,R,pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT:rLE(pB+pE+pI),bi};
 }
@@ -304,7 +318,7 @@ function calcPML(){
     const rsn=S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":"Combustible construction, so PML = MFL";
     return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   const o=MFL_T[primaryOcc()];if(!o||v.a===0)return{pB:0,pE:0,pI:0,pT:0,biM:0,eq:false,zones:[]};
-  const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||1500;
+  const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||defDA();
   let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
   let pB=0,pE=0,pI=0,zones=[];
   if(apl.sc&&APL_SC[apl.sc]){const s=APL_SC[apl.sc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
@@ -356,23 +370,23 @@ function genN(){
     if(pml.biM){a+=`\nBusiness Interruption: ${biText(pml.biM)}`;}
   } else if(apl.sc&&APL_SC[apl.sc]&&v.a>0){
     const s=APL_SC[apl.sc],sysD=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
-    const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(pf(S.designArea)||1500,v.a);if(x==="2x")return Math.min((pf(S.designArea)||1500)*2,v.a);if(x==="5x")return Math.min((pf(S.designArea)||1500)*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
-    const rAL=x=>{if(typeof x==="number")return fN(x)+" sqft";if(x==="design")return fN(pf(S.designArea)||1500)+" sqft (design area)";if(x==="2x")return fN(rA(x))+" sqft (2x fire area)";if(x==="5x")return fN(rA(x))+" sqft (5x fire area)";if(x==="comp")return fN(rA(x))+" sqft (compartment)";return"0"};
+    const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(pf(S.designArea)||defDA(),v.a);if(x==="2x")return Math.min((pf(S.designArea)||defDA())*2,v.a);if(x==="5x")return Math.min((pf(S.designArea)||defDA())*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
+    const rAL=x=>{if(typeof x==="number")return fN(x)+" "+aU();if(x==="design")return fN(pf(S.designArea)||defDA())+" "+aU()+" (design area)";if(x==="2x")return fN(rA(x))+" "+aU()+" (2x fire area)";if(x==="5x")return fN(rA(x))+" "+aU()+" (5x fire area)";if(x==="comp")return fN(rA(x))+" "+aU()+" (compartment)";return"0"};
 
-    a+=`The worst case APL scenario involves a fire originating in the ${occ.toLowerCase()} area, a ${fN(v.a)} sq ft ${ct.toLowerCase()} building protected by a ${sys} automatic sprinkler system. Per FP 5020 Table 1A, Scenario ${apl.sc} (${s.d}), the fire would be controlled by the sprinkler system with damage distributed across three zones as follows:\n\n`;
+    a+=`The worst case APL scenario involves a fire originating in the ${occ.toLowerCase()} area, a ${fN(v.a)} ${paU()} ${ct.toLowerCase()} building protected by a ${sys} automatic sprinkler system. Per FP 5020 Table 1A, Scenario ${apl.sc} (${s.d}), the fire would be controlled by the sprinkler system with damage distributed across three zones as follows:\n\n`;
     a+=`Site Values (primary building):\n`;
-    a+=`  Building:      ${fmtF(v.tb)} total, $${v.bpsf.toFixed(2)}/sqft\n`;
-    a+=`  Equipment/M&E: ${fmtF(v.te)} total, $${v.epsf.toFixed(2)}/sqft\n`;
-    a+=`  Inventory/WIP: ${fmtF(v.ti)} total, $${v.ipsf.toFixed(2)}/sqft\n\n`;
+    a+=`  Building:      ${fmtF(v.tb)} total, ${cs()}${v.bpsf.toFixed(2)}/${aU()}\n`;
+    a+=`  Equipment/M&E: ${fmtF(v.te)} total, ${cs()}${v.epsf.toFixed(2)}/${aU()}\n`;
+    a+=`  Inventory/WIP: ${fmtF(v.ti)} total, ${cs()}${v.ipsf.toFixed(2)}/${aU()}\n\n`;
 
     ["fire","water","smoke"].forEach(t=>{
       const d=sysD[t],ar=rA(d.a);
       const bD=(v.tb/v.a)*d.b*ar, eD=(v.te/v.a)*d.e*ar, iD=(v.ti/v.a)*d.i*ar;
       const tU=t.charAt(0).toUpperCase()+t.slice(1);
       a+=`${tU} Damage Zone: ${rAL(d.a)}\n`;
-      a+=`  Bldg:  $${v.bpsf.toFixed(2)}/sqft x ${pct(d.b)} x ${fN(ar)} sqft = ${fmtF(rLE(bD))}\n`;
-      a+=`  Equip: $${v.epsf.toFixed(2)}/sqft x ${pct(d.e)} x ${fN(ar)} sqft = ${fmtF(rLE(eD))}\n`;
-      a+=`  Inv:   $${v.ipsf.toFixed(2)}/sqft x ${pct(d.i)} x ${fN(ar)} sqft = ${fmtF(rLE(iD))}\n\n`;
+      a+=`  Bldg:  ${cs()}${v.bpsf.toFixed(2)}/${aU()} x ${pct(d.b)} x ${fN(ar)} ${aU()} = ${fmtF(rLE(bD))}\n`;
+      a+=`  Equip: ${cs()}${v.epsf.toFixed(2)}/${aU()} x ${pct(d.e)} x ${fN(ar)} ${aU()} = ${fmtF(rLE(eD))}\n`;
+      a+=`  Inv:   ${cs()}${v.ipsf.toFixed(2)}/${aU()} x ${pct(d.i)} x ${fN(ar)} ${aU()} = ${fmtF(rLE(iD))}\n\n`;
     });
 
     a+=`  Building:      ${fmtF(apl.pB)}\n`;
@@ -421,30 +435,30 @@ function genN(){
     p+=`  Total PML PD (= MFL): ${fmtF(pml.pT)}`;
     if(pml.biM){p+=`\nBusiness Interruption: ${biText(pml.biM)}`;}
   } else {
-    const da=pf(S.designArea)||1500, pa=pml.pmlFA||da*1.5;
-    p+=`With the ${sysName} impaired, there is no containment of the fire until it reaches the boundary of the sprinkler system zone. The PML fire area is estimated at ${fN(Math.round(pa))} sq ft, based on the sprinkler design area of ${fN(da)} sq ft plus 50% for fire growth before external response limits the spread. The ${S.fdType==="fullypaid"?"fully-paid fire department":"fire department"} is assumed to respond and contain the fire in conjunction with physical separations.\n\n`;
+    const da=pf(S.designArea)||defDA(), pa=pml.pmlFA||da*1.5;
+    p+=`With the ${sysName} impaired, there is no containment of the fire until it reaches the boundary of the sprinkler system zone. The PML fire area is estimated at ${fN(Math.round(pa))} ${paU()}, based on the sprinkler design area of ${fN(da)} ${paU()} plus 50% for fire growth before external response limits the spread. The ${S.fdType==="fullypaid"?"fully-paid fire department":"fire department"} is assumed to respond and contain the fire in conjunction with physical separations.\n\n`;
 
     if(pml.zones&&pml.zones.length>0&&apl.sc){
       const aplFA=pml.zones[0].aplA;
       const sf=aplFA>0?(pa/aplFA):1;
-      p+=`The damage zones are scaled proportionally from APL Scenario ${apl.sc}. The APL fire zone is ${fN(aplFA)} sqft and the PML fire area is ${fN(Math.round(pa))} sqft, giving a scale factor of ${sf.toFixed(2)}x:\n\n`;
+      p+=`The damage zones are scaled proportionally from APL Scenario ${apl.sc}. The APL fire zone is ${fN(aplFA)} ${aU()} and the PML fire area is ${fN(Math.round(pa))} ${aU()}, giving a scale factor of ${sf.toFixed(2)}x:\n\n`;
 
       pml.zones.forEach(z=>{
         const tU=z.type.charAt(0).toUpperCase()+z.type.slice(1);
-        p+=`${tU} Zone: ${fN(z.aplA)} sqft (APL) x ${sf.toFixed(2)} = ${fN(z.pmlA)} sqft (PML)\n`;
-        p+=`  Bldg:  $${v.bpsf.toFixed(2)}/sqft x ${pct(z.bPct)} x ${fN(z.pmlA)} sqft = ${fmtF(z.bD)}\n`;
-        p+=`  Equip: $${v.epsf.toFixed(2)}/sqft x ${pct(z.ePct)} x ${fN(z.pmlA)} sqft = ${fmtF(z.eD)}\n`;
-        p+=`  Inv:   $${v.ipsf.toFixed(2)}/sqft x ${pct(z.iPct)} x ${fN(z.pmlA)} sqft = ${fmtF(z.iD)}\n\n`;
+        p+=`${tU} Zone: ${fN(z.aplA)} ${aU()} (APL) x ${sf.toFixed(2)} = ${fN(z.pmlA)} ${aU()} (PML)\n`;
+        p+=`  Bldg:  ${cs()}${v.bpsf.toFixed(2)}/${aU()} x ${pct(z.bPct)} x ${fN(z.pmlA)} ${aU()} = ${fmtF(z.bD)}\n`;
+        p+=`  Equip: ${cs()}${v.epsf.toFixed(2)}/${aU()} x ${pct(z.ePct)} x ${fN(z.pmlA)} ${aU()} = ${fmtF(z.eD)}\n`;
+        p+=`  Inv:   ${cs()}${v.ipsf.toFixed(2)}/${aU()} x ${pct(z.iPct)} x ${fN(z.pmlA)} ${aU()} = ${fmtF(z.iD)}\n\n`;
       });
     } else {
       p+=`Site Values (primary building):\n`;
-      p+=`  Building:      ${fmtF(v.tb)} total, $${v.bpsf.toFixed(2)}/sqft\n`;
-      p+=`  Equipment/M&E: ${fmtF(v.te)} total, $${v.epsf.toFixed(2)}/sqft\n`;
-      p+=`  Inventory/WIP: ${fmtF(v.ti)} total, $${v.ipsf.toFixed(2)}/sqft\n\n`;
-      p+=`PML Damage (${fN(Math.round(pa))} sqft, per Table 4 percentages):\n`;
-      p+=`  Bldg:  $${v.bpsf.toFixed(2)}/sqft x ${pml.bP}% x ${fN(Math.round(pa))} sqft = ${fmtF(pml.pB)}\n`;
-      p+=`  Equip: $${v.epsf.toFixed(2)}/sqft x ${pml.eP}% x ${fN(Math.round(pa))} sqft = ${fmtF(pml.pE)}\n`;
-      p+=`  Inv:   $${v.ipsf.toFixed(2)}/sqft x ${pml.iP}% x ${fN(Math.round(pa))} sqft = ${fmtF(pml.pI)}\n\n`;
+      p+=`  Building:      ${fmtF(v.tb)} total, ${cs()}${v.bpsf.toFixed(2)}/${aU()}\n`;
+      p+=`  Equipment/M&E: ${fmtF(v.te)} total, ${cs()}${v.epsf.toFixed(2)}/${aU()}\n`;
+      p+=`  Inventory/WIP: ${fmtF(v.ti)} total, ${cs()}${v.ipsf.toFixed(2)}/${aU()}\n\n`;
+      p+=`PML Damage (${fN(Math.round(pa))} ${aU()}, per Table 4 percentages):\n`;
+      p+=`  Bldg:  ${cs()}${v.bpsf.toFixed(2)}/${aU()} x ${pml.bP}% x ${fN(Math.round(pa))} ${aU()} = ${fmtF(pml.pB)}\n`;
+      p+=`  Equip: ${cs()}${v.epsf.toFixed(2)}/${aU()} x ${pml.eP}% x ${fN(Math.round(pa))} ${aU()} = ${fmtF(pml.pE)}\n`;
+      p+=`  Inv:   ${cs()}${v.ipsf.toFixed(2)}/${aU()} x ${pml.iP}% x ${fN(Math.round(pa))} ${aU()} = ${fmtF(pml.pI)}\n\n`;
     }
 
     p+=`  Building:      ${fmtF(pml.pB)}\n`;
@@ -503,15 +517,15 @@ function genN(){
 
   if(mfl.hasFW){
     const fwPct=(mfl.mflA/v.a*100).toFixed(1);
-    m+=`\nA credited 4-hour rated MFL fire wall limits the primary building fire area to ${fN(mfl.mflA)} sq ft (${fwPct}% of ${fN(v.a)} sq ft). The portion of the primary building behind the fire wall is excluded:\n`;
+    m+=`\nA credited 4-hour rated MFL fire wall limits the primary building fire area to ${fN(mfl.mflA)} ${paU()} (${fwPct}% of ${fN(v.a)} ${paU()}). The portion of the primary building behind the fire wall is excluded:\n`;
     m+=`  Fire wall reduction: -${fmtF(mfl.fwReduction)}\n`;
   }
 
   if(mfl.exclB.length>0||mfl.inclB.length>0){
     m+=`\nBuilding Separation Analysis (Table 3a):\n`;
     m+=`The total site values include all buildings. Buildings with adequate separation per Table 3a are subtracted from the MFL since the fire is not expected to spread to those structures.\n\n`;
-    mfl.exclB.forEach(b=>{m+=`  ${b.name}: ${fN(b.act)} ft actual vs ${b.req} ft required. Adequate separation, ${fmtF(b.value)} subtracted from MFL.\n`;});
-    mfl.inclB.forEach(b=>{m+=`  ${b.name}: ${pf(b.act)>0?fN(b.act)+" ft actual":"separation not specified"} vs ${b.req} ft required. Inadequate separation, ${fmtF(b.value)} remains in MFL.\n`;});
+    mfl.exclB.forEach(b=>{m+=`  ${b.name}: ${fN(b.act)} ${dU()} actual vs ${b.req} ${dU()} required. Adequate separation, ${fmtF(b.value)} subtracted from MFL.\n`;});
+    mfl.inclB.forEach(b=>{m+=`  ${b.name}: ${pf(b.act)>0?fN(b.act)+" "+dU()+" actual":"separation not specified"} vs ${b.req} ${dU()} required. Inadequate separation, ${fmtF(b.value)} remains in MFL.\n`;});
   }
 
   m+=`\n  Total Site PD:         ${fmtF(mfl.sitePD)}`;
@@ -589,49 +603,52 @@ function r0(){
     return`<div class="brow" style="grid-template-columns:30px 1.2fr .55fr .35fr .65fr .8fr 40px">
     <input type="radio" class="pri-radio" name="pri" ${i===S.primaryIdx?'checked':''} onchange="setPrimary(${i})" title="Set as primary fire area">
     <div class="fd" style="margin:0"><input type="text" value="${esc(b.name)}" placeholder="Building ${i+1}" oninput="setBldg(${i},'name',this.value)" onblur="setBldgR(${i},'name',this)"></div>
-    <div class="fd" style="margin:0"><input type="number" value="${esc(b.area)}" placeholder="sqft" oninput="setBldg(${i},'area',this.value)" onblur="setBldgR(${i},'area',this)"></div>
+    <div class="fd" style="margin:0"><input type="number" value="${esc(b.area)}" placeholder="${aU()}" oninput="setBldg(${i},'area',this.value)" onblur="setBldgR(${i},'area',this)"></div>
     <div class="fd" style="margin:0"><input type="number" value="${esc(b.floors||'')}" placeholder="#" min="1" title="Number of stories" oninput="setBldg(${i},'floors',this.value)" onblur="setBldgR(${i},'floors',this)"></div>
     <div class="fd" style="margin:0"><select onchange="S.buildings[${i}].construction=this.value;render()"><option value="fr"${b.construction==="fr"?" selected":""}>FR</option><option value="hnc"${b.construction==="hnc"?" selected":""}>HNC</option><option value="lnc"${b.construction==="lnc"?" selected":""}>LNC</option><option value="comb"${b.construction==="comb"?" selected":""}>Comb</option></select></div>
     <div class="fd" style="margin:0"><select onchange="S.buildings[${i}].occupancy=this.value;render()">${oo.map(o=>`<option value="${esc(o[0])}"${(b.occupancy||"Warehousing")===o[0]?' selected':''}>${esc(o[1].length>18?o[1].slice(0,18)+'...':o[1])}</option>`).join('')}</select></div>
     ${S.buildings.length>1?`<button class="brm" onclick="rmBldg(${i})">✕</button>`:'<div></div>'}
   </div>`}).join('');
 
+  const curSel=`<select onchange="set('currency',this.value)">${CURRENCIES.map(c=>`<option value="${esc(c[0])}"${S.currency===c[0]?' selected':''}>${esc(c[1])}</option>`).join('')}</select>`;
+  const unitSel=`<select onchange="set('units',this.value)"><option value="imperial"${S.units==="imperial"?' selected':''}>Imperial (sqft / ft)</option><option value="metric"${S.units==="metric"?' selected':''}>Metric (m² / m)</option></select>`;
   return`<div class="cd"><h3 class="ct">Site Information</h3>
-  <div class="g3">${fd("Site Name",inp("siteName","e.g. ABC Manufacturing"))}${fd("Account Number",inp("accountNo",""))}${fd("Survey Date",inp("surveyDate","","date"))}</div></div>
+  <div class="g3">${fd("Site Name",inp("siteName","e.g. ABC Manufacturing"))}${fd("Account Number",inp("accountNo",""))}${fd("Survey Date",inp("surveyDate","","date"))}</div>
+  <div class="g2" style="margin-top:10px">${fd("Currency",curSel)}${fd("Unit System",unitSel)}</div></div>
   <div class="cd"><h3 class="ct">Buildings</h3>
   <div class="note">List all buildings on the site. Select the radio button next to the building that will be used as the primary fire area for APL and PML. Additional buildings will be evaluated for MFL separation on the MFL tab.</div>
-  <div style="display:grid;grid-template-columns:30px 1.2fr .55fr .35fr .65fr .8fr 40px;gap:6px;margin-bottom:4px;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Fire</div><div>Name</div><div>Area (sqft)</div><div>Floors</div><div>Const.</div><div>Occupancy</div><div></div></div>
+  <div style="display:grid;grid-template-columns:30px 1.2fr .55fr .35fr .65fr .8fr 40px;gap:6px;margin-bottom:4px;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Fire</div><div>Name</div><div>Area (${aU()})</div><div>Floors</div><div>Const.</div><div>Occupancy</div><div></div></div>
   ${bhtml}
   <div class="add-b" onclick="addBldg()">+ Add Building</div>
-  <div style="margin-top:10px;font-size:11px;color:var(--muted)">Primary fire area: <strong style="color:var(--accent)">${pb().name||"Building "+(S.primaryIdx+1)}</strong> (${fN(primaryArea())} sqft, ${CL[primaryConst()]||""}) | Total site: ${fN(totalSqft())} sqft</div>
+  <div style="margin-top:10px;font-size:11px;color:var(--muted)">Primary fire area: <strong style="color:var(--accent)">${pb().name||"Building "+(S.primaryIdx+1)}</strong> (${fN(primaryArea())} ${aU()}, ${CL[primaryConst()]||""}) | Total site: ${fN(totalSqft())} ${aU()}</div>
   </div>
   <div class="cd"><h3 class="ct">Primary Building Protection</h3>
   ${fd("NFPA Hazard Classification",sel("hazardClass",[["light","Light Hazard"],["ordinary","Ordinary Hazard"],["extra","Extra Hazard"]]))}
   <div class="tgr" style="margin-bottom:10px">${tog("Storage Occupancy","isStorage")}${tog("Sensitive Occupancy","isSensitive")}</div>
   <div class="g2">${fd("Sprinkler Type",sel("sprinklerType",[["wet","Wet Pipe"],["dry","Dry Pipe"]]))}${fd("Adequacy",sel("sprinklerAdequate",[["adequate","Reliable & Fully Adequate"],["deficient","Not Fully Adequate"],["none","No Sprinkler Protection"]]))}</div>
   ${S.sprinklerAdequate==="deficient"?fd("% of Design Provided",inp("designPct","80","number")):""}
-  <div class="g2">${fd("Protection Configuration",sel("protType",[["standard","Standard (CMDA)"],["esfr","ESFR"],["cmsa","CMSA"]]))}${fd("Sprinkler Design Area (sqft)",inp("designArea","1500","number"))}</div>
-  ${fd("Compartment / Room Area (sqft)",inp("compArea","Entire building if open","number"))}
+  <div class="g2">${fd("Protection Configuration",sel("protType",[["standard","Standard (CMDA)"],["esfr","ESFR"],["cmsa","CMSA"]]))}${fd("Sprinkler Design Area ("+aU()+")",inp("designArea",S.units==="metric"?"140":"1500","number"))}</div>
+  ${fd("Compartment / Room Area ("+aU()+")",inp("compArea","Entire building if open","number"))}
   <div class="tgr">${tog("Significant FL/CL","hasFL")}${tog("Alarms, FD & PEO Adequate","alarmsOk")}</div></div>`;
 }
 
 function r1(){
   const v=gv(),ts=totalSqft();
-  let distHtml=S.buildings.map((b,i)=>{const ba=pf(b.area),pct=ts>0?(ba/ts*100).toFixed(1):0;return`<div style="font-size:12px;color:var(--text);padding:4px 0"><strong>${b.name||"Building "+(i+1)}</strong>: ${fN(ba)} sqft (${pct}%) = ${fmtF(bldgValue(i))}${pf(b.value)>0?' <span style="color:var(--accent)">(override)</span>':''}</div>`}).join('');
+  let distHtml=S.buildings.map((b,i)=>{const ba=pf(b.area),pct=ts>0?(ba/ts*100).toFixed(1):0;return`<div style="font-size:12px;color:var(--text);padding:4px 0"><strong>${b.name||"Building "+(i+1)}</strong>: ${fN(ba)} ${aU()} (${pct}%) = ${fmtF(bldgValue(i))}${pf(b.value)>0?' <span style="color:var(--accent)">(override)</span>':''}</div>`}).join('');
   return`<div class="cd"><h3 class="ct">Total Site Property Values</h3>
-  <p style="color:var(--muted);font-size:11px;margin-bottom:10px">Enter the total reported values. They distribute to buildings proportionally by square footage unless you override a building's value on the MFL tab.</p>
-  <div class="g3">${fd("Total Building ($)",inp("totalBldg","10,000,000","number"))}${fd("Total Equipment/M&E ($)",inp("totalEquip","25,000,000","number"))}${fd("Total Inventory/WIP ($)",inp("totalInv","2,000,000","number"))}</div></div>
-  <div class="cd"><h3 class="ct">Primary Building ($/sqft)</h3>
-  <div style="margin-bottom:8px;font-size:11px;color:var(--muted)">Based on primary building area of ${fN(v.a)} sqft</div>
-  <div class="g3">${vc("Building","$"+v.bpsf.toFixed(2),fmtF(v.tb))}${vc("Equipment","$"+v.epsf.toFixed(2),fmtF(v.te))}${vc("Inv/WIP","$"+v.ipsf.toFixed(2),fmtF(v.ti))}</div></div>
+  <p style="color:var(--muted);font-size:11px;margin-bottom:10px">Enter the total reported values. They distribute to buildings proportionally by area unless you override a building's value on the MFL tab.</p>
+  <div class="g3">${fd("Total Building",inp("totalBldg","10,000,000","number"))}${fd("Total Equipment/M&E",inp("totalEquip","25,000,000","number"))}${fd("Total Inventory/WIP",inp("totalInv","2,000,000","number"))}</div></div>
+  <div class="cd"><h3 class="ct">Primary Building (per ${aU()})</h3>
+  <div style="margin-bottom:8px;font-size:11px;color:var(--muted)">Based on primary building area of ${fN(v.a)} ${aU()}</div>
+  <div class="g3">${vc("Building",cs()+v.bpsf.toFixed(2),fmtF(v.tb))}${vc("Equipment",cs()+v.epsf.toFixed(2),fmtF(v.te))}${vc("Inv/WIP",cs()+v.ipsf.toFixed(2),fmtF(v.ti))}</div></div>
   ${S.buildings.length>1?`<div class="cd"><h3 class="ct">Value Distribution by Building</h3>${distHtml}</div>`:''}`;
 }
 
 function rBI(){
   const v=gv(),biD=v.by;
   return`<div class="cd"><h3 class="ct">Business Interruption</h3>
-  ${fd("BI Input Method",sel("biMode",[["dollar","Dollar Value ($/year)"],["percent","% of Annual Production"]]))}
-  ${S.biMode==="dollar"?fd("Business Interruption ($/year)",inp("biYearly","6,000,000","number")):`<div class="g2">${fd("Annual Production/Revenue ($)",inp("annualProd","50,000,000","number"))}${fd("BI as % of Annual Production",inp("biPct","25","number"))}</div>
+  ${fd("BI Input Method",sel("biMode",[["dollar","Value per Year"],["percent","% of Annual Production"]]))}
+  ${S.biMode==="dollar"?fd("Business Interruption (per year)",inp("biYearly","6,000,000","number")):`<div class="g2">${fd("Annual Production/Revenue",inp("annualProd","50,000,000","number"))}${fd("BI as % of Annual Production",inp("biPct","25","number"))}</div>
   <div class="note">Consider single-source production, equipment lead times, market share at risk, contractual penalties, and ability to shift production to other facilities.</div>`}
   </div>
   <div class="cd"><h3 class="ct">BI Summary</h3>
@@ -660,14 +677,14 @@ function r2(){
 }
 
 function r3(){
-  const pml=calcPML(),apl=calcAPL(),v=gv(),dA=pf(S.designArea)||1500,calcA=Math.min(Math.round(dA*1.5),v.a||Infinity),usedA=pf(S.pmlArea)>0?Math.min(pf(S.pmlArea),v.a||Infinity):calcA;
+  const pml=calcPML(),apl=calcAPL(),v=gv(),dA=pf(S.designArea)||defDA(),calcA=Math.min(Math.round(dA*1.5),v.a||Infinity),usedA=pf(S.pmlArea)>0?Math.min(pf(S.pmlArea),v.a||Infinity):calcA;
   return`<div class="cd"><h3 class="ct">PML Configuration</h3>
   <div class="note">The PML fire area represents the area that would burn before the fire department or physical barriers contain the fire, given the single system failure. With no sprinkler containment, the fire grows to the full sprinkler zone area plus additional spread before response.</div>
   <div class="g2">${fd("Single System Failure",sel("pmlSystem",[["sprinkler_riser","Sprinkler Riser / Control Valve"],["fire_pump","Fire Pump"],["detection","Detection / Alarm System"],["clean_agent","Clean Agent System"],["foam_system","Foam System"],["deluge","Deluge System"],["other","Other"]]))}
-  ${fd("PML Fire Area Override (sqft)<br><span style='font-size:9px;color:var(--dim)'>Leave blank for default</span>",inp("pmlArea","","number"))}</div>
+  ${fd("PML Fire Area Override ("+aU()+")<br><span style='font-size:9px;color:var(--dim)'>Leave blank for default</span>",inp("pmlArea","","number"))}</div>
   <div style="background:var(--ibg);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;font-size:11px;color:var(--text)">
-    <strong style="color:var(--accent)">PML Fire Area: ${fN(usedA)} sqft</strong>
-    <span style="color:var(--muted);margin-left:6px">${pf(S.pmlArea)>0?"(override)":"(default: "+fN(dA)+" sqft design area x 1.5 = "+fN(calcA)+" sqft)"}</span>
+    <strong style="color:var(--accent)">PML Fire Area: ${fN(usedA)} ${aU()}</strong>
+    <span style="color:var(--muted);margin-left:6px">${pf(S.pmlArea)>0?"(override)":"(default: "+fN(dA)+" "+aU()+" design area x 1.5 = "+fN(calcA)+" "+aU()+")"}</span>
   </div>
   <div class="g2">${fd("FD Response",sel("fdTime",[["prompt","Prompt (under 40 min)"],["delayed","Delayed (over 40 min), PML=MFL"]]))}${fd("FD Type",sel("fdType",[["fullypaid","Fully Paid & Well Equipped"],["combination","Combination"],["volunteer","Volunteer"]]))}</div>
   <div class="tgr">${tog("Combustible Construction/Cladding","hasCombConst")}</div></div>
@@ -687,22 +704,22 @@ function r4(){
     sepHtml+=`<div style="display:grid;grid-template-columns:1.3fr .7fr .7fr .7fr .8fr;gap:6px;align-items:end;margin-bottom:4px">
     <div class="fd" style="margin:0"><input disabled value="${esc(b.name||'Building '+(i+1))}" style="opacity:.7"></div>
     <div class="fd" style="margin:0"><input disabled value="${fN(pf(b.area))}" style="opacity:.7"></div>
-    <div class="fd" style="margin:0"><input type="number" value="${esc(b.separation)}" placeholder="ft" oninput="setBldg(${i},'separation',this.value)" onblur="setBldgR(${i},'separation',this)"></div>
+    <div class="fd" style="margin:0"><input type="number" value="${esc(b.separation)}" placeholder="${dU()}" oninput="setBldg(${i},'separation',this.value)" onblur="setBldgR(${i},'separation',this)"></div>
     <div class="fd" style="margin:0"><input type="number" value="${esc(b.value)}" placeholder="auto" oninput="setBldg(${i},'value',this.value)" onblur="setBldgR(${i},'value',this)"></div>
-    <div style="font-size:11px;padding-bottom:8px;color:var(--muted)">Req: ${req} ft</div>
+    <div style="font-size:11px;padding-bottom:8px;color:var(--muted)">Req: ${req} ${dU()}</div>
     </div>
-    ${act>0?`<div class="${ok?'sep-ok':'sep-bad'}" style="margin-bottom:8px">${ok?'✓':'✗'} ${fN(act)} ft actual vs ${req} ft required. ${ok?fmtF(bldgValue(i))+' excluded from MFL':fmtF(bldgValue(i))+' included in MFL at 100%'}</div>`:''}`;
+    ${act>0?`<div class="${ok?'sep-ok':'sep-bad'}" style="margin-bottom:8px">${ok?'✓':'✗'} ${fN(act)} ${dU()} actual vs ${req} ${dU()} required. ${ok?fmtF(bldgValue(i))+' excluded from MFL':fmtF(bldgValue(i))+' included in MFL at 100%'}</div>`:''}`;
   });
 
   return`<div class="cd"><h3 class="ct">MFL Configuration</h3>
   <div class="note">MFL assumes 100% destruction within the fire area. Only a credited 4-hour fire wall can limit the MFL area within the primary building.</div>
   <div class="tgr" style="margin-bottom:10px">${tog("4-Hour MFL Fire Wall Credited","fw4hr")}</div>
   ${S.fw4hr?`<div class="note">Enter the area on the larger/higher-value side of the fire wall. These are exceptionally rare; consult with the account team and chief engineer.</div>
-  ${fd("Fire Area on Side of Origin (sqft)",inp("fwArea","","number"))}`:''}
+  ${fd("Fire Area on Side of Origin ("+aU()+")",inp("fwArea","","number"))}`:''}
   </div>
   ${S.buildings.length>1?`<div class="cd"><h3 class="ct">Building Separation (Table 3a)</h3>
   <div class="note">Enter the separation distance from the primary building to each adjacent building. Buildings meeting the minimum distance per Table 3a are excluded from the MFL. You can override the auto-distributed value if needed.</div>
-  <div style="display:grid;grid-template-columns:1.3fr .7fr .7fr .7fr .8fr;gap:6px;margin-bottom:4px;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Building</div><div>Area</div><div>Sep. (ft)</div><div>Value ($)</div><div>Required</div></div>
+  <div style="display:grid;grid-template-columns:1.3fr .7fr .7fr .7fr .8fr;gap:6px;margin-bottom:4px;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Building</div><div>Area</div><div>Sep. (${dU()})</div><div>Value</div><div>Required</div></div>
   ${sepHtml}</div>`:``}
   <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">MFL Results</h3><span class="bdg bdg-d">${mfl.hasFW?(mfl.mflA/v.a*100).toFixed(0)+"% of primary | ":""}<span title="Table 4 blended damage percentage of total site PD">${mfl.sitePD>0?Math.round(mfl.pT/mfl.sitePD*100):0}% of Site PD (Table 4)</span></span></div>
   <div class="g3" style="margin-bottom:6px">${vc("Total Site PD",fmt(mfl.sitePD))}${vc("Separated / Excluded","-"+fmt(mfl.exclPD+(mfl.fwReduction||0)),mfl.exclB.length+" bldg(s) + wall","suc")}${vc("Total MFL PD",fmt(mfl.pT),"","dng")}</div>
@@ -714,7 +731,7 @@ function r4(){
 function r5(){
   genN();const apl=calcAPL(),pml=calcPML(),mfl=calcMFL(),v=gv();const aplPD=apl.eq?pml.pT:apl.pT;
   return`<div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">Loss Estimate Summary, ${S.siteName||"Unnamed Site"}</h3><button class="bnc" onclick="copyAll()">Copy All Narratives</button></div>
-  <div style="color:var(--muted);font-size:10px;margin-bottom:12px">${S.accountNo?S.accountNo+" | ":""}${fN(primaryArea())} sqft | ${CL[primaryConst()]||""} | ${primaryOcc()} | Total PD: ${fmt(v.pd)}</div>
+  <div style="color:var(--muted);font-size:10px;margin-bottom:12px">${S.accountNo?S.accountNo+" | ":""}${fN(primaryArea())} ${aU()} | ${CL[primaryConst()]||""} | ${primaryOcc()} | Total PD: ${fmt(v.pd)}</div>
   <div class="g3">${[{t:"APL",v:aplPD,c:"suc",s:apl.sc?"Scenario "+apl.sc:apl.eq?"= PML":""},{t:"PML",v:pml.pT,c:"wrn",s:pml.eq?"= MFL":"Single System"},{t:"MFL",v:mfl.pT,c:"dng",s:"Total Loss"}].map(l=>`<div style="background:var(--ibg);border-radius:8px;padding:16px;text-align:center;border:1px solid var(--border)"><div style="font-size:15px;font-weight:700;color:var(--${l.c})">${l.t}</div><div style="color:var(--muted);font-size:9px;margin:2px 0 8px;text-transform:uppercase">${l.s}</div><div style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace">${fmt(l.v)}</div></div>`).join('')}</div></div>
   <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">APL Narrative</h3><button class="bnc" onclick="copyEl('sA')">Copy</button></div><div class="nd" id="sA">${esc(S.aplN)}</div></div>
   <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">PML Narrative</h3><button class="bnc" onclick="copyEl('sP')">Copy</button></div><div class="nd" id="sP">${esc(S.pmlN)}</div></div>
@@ -757,6 +774,7 @@ function rRev(){
   <table style="width:100%;border-collapse:collapse;font-size:12px">
   <thead><tr style="border-bottom:2px solid var(--border)"><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Rev</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Date</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Author</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Status</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Description</th></tr></thead>
   <tbody>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.8</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Removed hardcoded USD ($) currency symbol from all values, narratives, and UI labels. Added configurable currency dropdown on Site Info tab with 15 major world currencies (USD, EUR, GBP, JPY, CNY, CHF, CAD, AUD, HKD, SGD, SEK, NOK, DKK, KRW, BRL); default is no symbol per LPR convention. Added imperial/metric unit system toggle on Site Info tab. Area labels switch between sqft and m², distance labels switch between ft and m. All percentage-based calculations are unit-agnostic; MFL Table 3a separation thresholds are auto-converted to metric when selected. Default design area adjusts to 140 m² (metric) / 1,500 sqft (imperial). Narratives, UI badges, per-unit-area breakdowns, and input placeholders all reflect the selected unit and currency. No impact on calculation accuracy — existing saved data loads without issue.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.7</td><td style="padding:8px">03/19/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Bug fix: High-rise MFL was incorrectly applying Table 4 damage percentages (e.g., 40% building for FR Office) as direct damage factors. Table 4 percentages are correctly treated as the building condemnation threshold. High-rise MFL now uses a floor-by-floor calculation: 2 fire floors at 100%, smoke to 4 floors above at 20%, water to 6 floors below at 15% (no exterior spread); all floors at 100% (exterior spread). Calculated building damage % is compared to the Table 4 threshold — if met or exceeded, building is condemned (100% loss); otherwise only the calculated floor damage is used. MFL narrative now shows the floor-by-floor math with explicit condemnation check. PML BI duration updated to reflect engineering discretion (no FP 5020 guidance for PML BI); narrative notes APL BI as minimum floor. Mobile responsive layout improved: header, tabs, footer, and inputs optimized for narrow screens.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.6</td><td style="padding:8px">03/13/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Table 4 data corrections: Metal Smelting/Foundry HNC equip 70%→80%, LNC equip 70%→80%, Comb equip 80%→100%, Comb inventory 80%→100%. Warehousing (Refrigerated) FR BI 12→9 months, HNC BI 18→12 months. "Table 5" label corrected to "Table 4" throughout all narratives, UI badge, and code comments (Table 4 = MFL damage percentages; Table 5 = building condemnation threshold — not yet implemented). All 101 unit tests confirmed passing. Flagged: Chemical Processing occupancy not present in FP 5020 Rev E Table 4 — pending review.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.5</td><td style="padding:8px">03/12/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">PML High Rise: replaced auto-calculated fire floors with explicit "Fire Floors Involved" select on High Rise tab (1, 2, or 3 per Table 2). PML high-rise narrative now shows full Table 2 per-floor breakdown: fire damage (ff floors × avg per floor × 100%), smoke above (sf floors × contents/floor × 20%), water below (wf floors × contents/floor × 15%), and combined total. APL multi-story note added to narrative for non-high-rise buildings with floors > 1 (FP 5020 Page 7: water on 2–3 floors below, smoke on 2–3 floors above). High-rise APL narrative note added for all high-rise buildings; APL auto-set to PML when high-rise has combustible exterior cladding (EIFS/IMP/ACM) per FP 5020 Page 7. Multi-story smoke/water narrative moved from MFL to PML (MFL uses Table 5 percentages which already account for multi-floor impact).</td></tr>

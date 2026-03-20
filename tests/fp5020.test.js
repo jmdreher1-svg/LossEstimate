@@ -45,7 +45,7 @@ let S;
 
 function resetS() {
   S = {
-    tab:0, siteName:"", accountNo:"", surveyDate:"",
+    tab:0, siteName:"", accountNo:"", surveyDate:"", currency:"", units:"imperial",
     buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:""}],
     primaryIdx:0,
     hazardClass:"ordinary", isStorage:true, isSensitive:false,
@@ -66,9 +66,13 @@ function resetS() {
 // ======================== HELPER FUNCTIONS (copied from HTML) ========================
 
 function pf(s){return parseFloat(s)||0}
-function fmt(v){if(!v||isNaN(v))return"$0";if(v>=1e9)return"$"+(v/1e9).toFixed(2)+"B";if(v>=1e6)return"$"+(v/1e6).toFixed(2)+"M";if(v>=1e3)return"$"+(v/1e3).toFixed(1)+"K";return"$"+Math.round(v).toLocaleString()}
-function fmtF(v){if(!v||isNaN(v))return"$0";return"$"+Math.round(v).toLocaleString()}
+function cs(){return S.currency||""}
+function fmt(v){const c=cs();if(!v||isNaN(v))return c+"0";if(v>=1e9)return c+(v/1e9).toFixed(2)+"B";if(v>=1e6)return c+(v/1e6).toFixed(2)+"M";if(v>=1e3)return c+(v/1e3).toFixed(1)+"K";return c+Math.round(v).toLocaleString()}
+function fmtF(v){const c=cs();if(!v||isNaN(v))return c+"0";return c+Math.round(v).toLocaleString()}
 function fN(v){return v.toLocaleString()}
+function toFt(v){return S.units==="metric"?v/0.3048:v}
+function fromFt(v){return S.units==="metric"?Math.round(v*0.3048):v}
+function defDA(){return S.units==="metric"?140:1500}
 function rLE(v){if(v<100000)return Math.round(v/1000)*1000;return Math.round(v/100000)*100000}
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function pct(v){return(v*100).toFixed(0)+"%"}
@@ -98,7 +102,8 @@ function gv(){
 
 function getSepReq(origC,expC,haz){
   const ok=origC==="fr"?"fr":origC==="comb"?"comb":"nc",ek=expC==="fr"?"fr":expC==="comb"?"comb":"nc",hk=haz==="light"?"l":haz==="ordinary"?"o":"e";
-  return MFL_SEP[ek]?.[ok]?.[hk]||100;
+  const ftVal=MFL_SEP[ek]?.[ok]?.[hk]||100;
+  return fromFt(ftVal);
 }
 
 // Table 1B
@@ -137,7 +142,7 @@ function calcAPL(){
   else{R.push("Non-storage (Figure "+(S.isSensitive?"1C":"1B")+")");if(isAdq&&!hasDef){R.push("Sprinkler system reliable and fully adequate");if(S.isSensitive){sc=isLO?"B":S.hasFL?"F":"D";}else{sc=isLO?"A":S.hasFL?"E":"C";}R.push("Scenario "+sc);}else{R.push(isAdq?"Adequate but deficiencies":"Not fully adequate");if(!is80&&!isAdq){eq=true;R.push("Less than 80% of design, APL = PML");}else if(S.hasFL){eq=true;R.push("FL/CL present, APL = PML");}else if(!S.alarmsOk&&!isAdq){eq=true;R.push("Alarms/FD/PEO inadequate, APL = PML");}else if(hasDef){const t=getT1B();R.push(t.rsn);if(t.eq)eq=true;else if(t.sc)sc=t.sc;else sc=S.isSensitive?"F":"E";}else{sc=S.isSensitive?"F":"E";R.push("Scenario "+sc);}}}
   let pB=0,pE=0,pI=0,bi="";
   if(sc&&APL_SC[sc]&&v.a>0){const s=APL_SC[sc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;bi=s.bi;
-    const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(pf(S.designArea)||1500,v.a);if(x==="2x")return Math.min((pf(S.designArea)||1500)*2,v.a);if(x==="5x")return Math.min((pf(S.designArea)||1500)*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
+    const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(pf(S.designArea)||defDA(),v.a);if(x==="2x")return Math.min((pf(S.designArea)||defDA())*2,v.a);if(x==="5x")return Math.min((pf(S.designArea)||defDA())*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
     ["fire","water","smoke"].forEach(t=>{const d=sys[t],ar=rA(d.a);pB+=(v.tb/v.a)*d.b*ar;pE+=(v.te/v.a)*d.e*ar;pI+=(v.ti/v.a)*d.i*ar;});}
   return{sc,eq,R,pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT:rLE(pB+pE+pI),bi};
 }
@@ -170,12 +175,33 @@ function calcMFL(){
   const atRiskBldg=rLE(siteTb*atRiskFrac);
   const atRiskEquip=rLE(siteTe*atRiskFrac);
   const atRiskInv=rLE(siteTi*atRiskFrac);
-  const pB=rLE(siteTb*atRiskFrac*(d.b/100));
-  const pE=rLE(siteTe*atRiskFrac*(d.e/100));
-  const pI=rLE(siteTi*atRiskFrac*(d.i/100));
+
+  // High-rise MFL: floor-by-floor damage calculation; Table 4 % used as condemnation threshold
+  let pB,pE,pI,hrMeta={isHR:false};
+  if(S.isHighRise){
+    const nFloors=Math.max(pf(S.stories)||1,1);
+    if(S.extSpreadPossible){
+      pB=atRiskBldg;pE=atRiskEquip;pI=atRiskInv;
+      hrMeta={isHR:true,extSpread:true,nFloors,condemned:true,bldgDmgPct:100,contsFrac:1};
+    } else {
+      const fireF=Math.min(2,nFloors);
+      const smokeF=Math.min(4,Math.max(nFloors-fireF,0));
+      const waterF=Math.min(6,nFloors);
+      const bldgDmgFrac=fireF/nFloors+(smokeF/nFloors)*0.20;
+      const bldgDmgPct=bldgDmgFrac*100;
+      const condemned=bldgDmgPct>=d.b;
+      pB=condemned?atRiskBldg:rLE(atRiskBldg*bldgDmgFrac);
+      const contsFrac=Math.min(fireF/nFloors+(smokeF/nFloors)*0.20+(waterF/nFloors)*0.15,1);
+      pE=rLE(atRiskEquip*contsFrac);pI=rLE(atRiskInv*contsFrac);
+      hrMeta={isHR:true,extSpread:false,nFloors,fireF,smokeF,waterF,bldgDmgFrac,bldgDmgPct,condemned,condemnThresh:d.b,contsFrac};
+    }
+  } else {
+    pB=rLE(atRiskBldg*(d.b/100));pE=rLE(atRiskEquip*(d.e/100));pI=rLE(atRiskInv*(d.i/100));
+  }
   const pT=Math.max(pB+pE+pI,0);
+
   const biM=d.bi;
-  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:d.b,eP:d.e,iP:d.i};
+  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:d.b,eP:d.e,iP:d.i,hrMeta};
 }
 
 // PML calculation
@@ -185,7 +211,7 @@ function calcPML(){
     const rsn=S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":"Combustible construction, so PML = MFL";
     return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   const o=MFL_T[primaryOcc()];if(!o||v.a===0)return{pB:0,pE:0,pI:0,pT:0,biM:0,eq:false,zones:[]};
-  const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||1500;
+  const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||defDA();
   let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
   let pB=0,pE=0,pI=0,zones=[];
   if(apl.sc&&APL_SC[apl.sc]){const s=APL_SC[apl.sc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
@@ -229,39 +255,47 @@ describe('pf() - parseFloat helper', () => {
 
 // --------------- fmt() ---------------
 describe('fmt() - compact formatter', () => {
-  test('returns $0 for falsy / NaN values', () => {
-    expect(fmt(0)).toBe('$0');
-    expect(fmt(undefined)).toBe('$0');
-    expect(fmt(NaN)).toBe('$0');
+  test('returns 0 for falsy / NaN values (no currency)', () => {
+    expect(fmt(0)).toBe('0');
+    expect(fmt(undefined)).toBe('0');
+    expect(fmt(NaN)).toBe('0');
   });
   test('formats billions', () => {
-    expect(fmt(1e9)).toBe('$1.00B');
-    expect(fmt(2.5e9)).toBe('$2.50B');
+    expect(fmt(1e9)).toBe('1.00B');
+    expect(fmt(2.5e9)).toBe('2.50B');
   });
   test('formats millions', () => {
-    expect(fmt(1e6)).toBe('$1.00M');
-    expect(fmt(500000)).toBe('$500.0K');
+    expect(fmt(1e6)).toBe('1.00M');
+    expect(fmt(500000)).toBe('500.0K');
   });
   test('formats thousands', () => {
-    expect(fmt(1000)).toBe('$1.0K');
-    expect(fmt(5500)).toBe('$5.5K');
+    expect(fmt(1000)).toBe('1.0K');
+    expect(fmt(5500)).toBe('5.5K');
   });
   test('formats sub-thousand values', () => {
-    expect(fmt(500)).toBe('$500');
-    expect(fmt(1)).toBe('$1');
+    expect(fmt(500)).toBe('500');
+    expect(fmt(1)).toBe('1');
+  });
+  test('prepends currency symbol when set', () => {
+    S.currency = '$';
+    expect(fmt(1e6)).toBe('$1.00M');
+    expect(fmtF(1000000)).toBe('$1,000,000');
+    S.currency = '€';
+    expect(fmt(1e6)).toBe('€1.00M');
+    S.currency = '';
   });
 });
 
 // --------------- fmtF() ---------------
-describe('fmtF() - full dollar formatter', () => {
-  test('returns $0 for falsy / NaN', () => {
-    expect(fmtF(0)).toBe('$0');
-    expect(fmtF(undefined)).toBe('$0');
-    expect(fmtF(NaN)).toBe('$0');
+describe('fmtF() - full formatter', () => {
+  test('returns 0 for falsy / NaN (no currency)', () => {
+    expect(fmtF(0)).toBe('0');
+    expect(fmtF(undefined)).toBe('0');
+    expect(fmtF(NaN)).toBe('0');
   });
-  test('formats with full dollar amounts', () => {
-    expect(fmtF(1000000)).toBe('$1,000,000');
-    expect(fmtF(250000)).toBe('$250,000');
+  test('formats with full amounts', () => {
+    expect(fmtF(1000000)).toBe('1,000,000');
+    expect(fmtF(250000)).toBe('250,000');
   });
 });
 
