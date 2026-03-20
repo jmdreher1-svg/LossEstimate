@@ -210,11 +210,14 @@ function hypAPLSc(){const isLO=S.hazardClass==="light"||S.hazardClass==="ordinar
 // PML calculation
 function calcPML(){
   const v=gv(),mfl=calcMFL(),apl=calcAPL();
-  if(S.fdTime==="delayed"||primaryConst()==="comb"||S.hasCombConst||S.sprinklerAdequate==="none"){
-    const rsn=S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":S.sprinklerAdequate==="none"?"No automatic sprinkler protection, so PML = MFL":"Combustible construction, so PML = MFL";
+  // Step 1: Hard PML=MFL — inadequate alarms, delayed FD, combustible construction, or no sprinklers
+  if(!S.alarmsOk||S.fdTime==="delayed"||primaryConst()==="comb"||S.hasCombConst||S.sprinklerAdequate==="none"){
+    const rsn=!S.alarmsOk?"Inadequate alarms/FD notification implies delayed emergency response, so PML = MFL":S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":S.sprinklerAdequate==="none"?"No automatic sprinkler protection, so PML = MFL":"Combustible construction, so PML = MFL";
     return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
-  if(S.sprinklerAdequate==="deficient"&&!S.alarmsOk){
+  // Step 2: Any APL=PML trigger → hypothetical scenario zones at 100% damage, design area × 1.5
+  if(apl.eq){
     const hSc=hypAPLSc(),designA=pf(S.designArea)||defDA();
+    const aplEqRsn=apl.R.filter(r=>r.toLowerCase().includes("apl = pml")).join("; ")||"Protection deficiencies";
     if(hSc&&APL_SC[hSc]){const s=APL_SC[hSc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
       const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
       const aplFireA=rA(sys.fire.a);
@@ -224,8 +227,8 @@ function calcPML(){
       ["fire","water","smoke"].forEach(t=>{const zd=sys[t];const aplZA=rA(zd.a);const pmlZA=Math.min(Math.round(aplZA*sf),v.a);const bD=(v.tb/v.a)*pmlZA,eD=(v.te/v.a)*pmlZA,iD=(v.ti/v.a)*pmlZA;pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:aplZA,pmlA:pmlZA,bPct:100,ePct:100,iPct:100,bD:rLE(bD),eD:rLE(eD),iD:rLE(iD)});});
       pB=Math.min(pB,v.tb);pE=Math.min(pE,v.te);pI=Math.min(pI,v.ti);
       let pT=rLE(pB+pE+pI);const mflCap=pT>mfl.pT;if(mflCap)pT=mfl.pT;
-      return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT,eq:true,rsn:"Deficient sprinkler system with inadequate alarms/FD/PEO: fire grows uncontrolled to PML fire area; 100% damage applied to all scenario zones",pmlFA,zones,hypSc:hSc,bP:100,eP:100,iP:100,mflCap};}
-    return{...mfl,eq:true,rsn:"Deficient sprinkler system with inadequate alarms/FD/PEO implies delayed response, so PML = MFL",pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
+      return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT,eq:true,rsn:`${aplEqRsn}: PML fire area modeled at 100% damage using hypothetical Scenario ${hSc} zone ratios scaled to design area × 1.5`,pmlFA,hypDesignA:designA,pmlAreaOverride:pf(S.pmlArea)>0,zones,hypSc:hSc,aplEqRsn,bP:100,eP:100,iP:100,mflCap};}
+    return{...mfl,eq:true,rsn:`${aplEqRsn}: no adequate protection scenario available, so PML = MFL`,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   const o=MFL_T[primaryOcc()];if(!o||v.a===0)return{pB:0,pE:0,pI:0,pT:0,biM:0,eq:false,zones:[]};
   const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||defDA();
   let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
@@ -1832,15 +1835,17 @@ describe('Integration: combustible construction site', () => {
 });
 
 // --------------- PML: deficient + no alarms uses scenario-based 100% zones ---------------
-describe('PML: deficient sprinklers + inadequate alarms uses scenario-based 100% damage zones', () => {
+describe('PML: any APL=PML trigger uses scenario-based 100% damage zones', () => {
+  // Setup: non-storage, deficient, <80% design → APL=PML via !is80&&!isAdq path
+  // alarmsOk=true so Step 1 (PML=MFL) is NOT triggered; apl.eq triggers Step 2
   function defNoAlarmSetup() {
     S.buildings[0].area = '100000';
     S.buildings[0].occupancy = 'Warehousing';
     S.buildings[0].construction = 'hnc';
     S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
     S.isStorage = false; S.isSensitive = false; S.hazardClass = 'ordinary';
-    S.sprinklerAdequate = 'deficient'; S.designPct = '80';
-    S.alarmsOk = false; S.designArea = '2000'; S.fdTime = 'prompt';
+    S.sprinklerAdequate = 'deficient'; S.designPct = '70';
+    S.alarmsOk = true; S.designArea = '2000'; S.fdTime = 'prompt';
   }
 
   test('PML eq flag is set', () => {
@@ -1936,9 +1941,9 @@ describe('PML: deficient sprinklers + inadequate alarms uses scenario-based 100%
     expect(hypAPLSc()).toBe('G');
   });
 
-  test('storage deficient+no alarms also uses scenario zones', () => {
+  test('storage deficient + <80% design also uses scenario zones', () => {
     defNoAlarmSetup();
-    S.isStorage = true;
+    S.isStorage = true; // storage path: !is80&&!isAdq → eq=true → Step 2
     const pml = calcPML();
     expect(pml.eq).toBe(true);
     expect(pml.zones).toHaveLength(3);
@@ -1949,7 +1954,7 @@ describe('PML: deficient sprinklers + inadequate alarms uses scenario-based 100%
   test('PML fire zone area equals designArea x 1.5 (standard pmlFA)', () => {
     defNoAlarmSetup();
     const pml = calcPML();
-    // hypSc=C, aplFireA=1200; sf=3000/1200=2.5; fire pmlA = round(1200*2.5)=3000
+    // hypSc=A (ordinary non-storage), aplFireA=700; sf=3000/700; fire pmlA=round(700*sf)=3000 always
     expect(pml.zones[0].pmlA).toBe(3000);
   });
 
@@ -1958,12 +1963,21 @@ describe('PML: deficient sprinklers + inadequate alarms uses scenario-based 100%
     expect(calcPML().pmlFA).toBe(3000);
   });
 
-  test('alarmsOk=true with deficient sprinklers does NOT trigger scenario zones', () => {
+  test('deficient sprinklers with >=80% design and alarmsOk does NOT trigger scenario zones', () => {
     defNoAlarmSetup();
-    S.alarmsOk = true;
+    S.designPct = '80'; // is80=true → APL gets Scenario E, eq=false
     const pml = calcPML();
-    // With alarmsOk=true the new block doesn't fire; normal PML path runs
+    // Normal PML path runs — APL not eq=true, so Step 2 skipped
     expect(pml.eq).toBe(false);
+  });
+
+  test('alarmsOk=false triggers Step 1 PML=MFL with empty zones array', () => {
+    defNoAlarmSetup();
+    S.alarmsOk = false; // Step 1: !alarmsOk → PML=MFL
+    const pml = calcPML();
+    expect(pml.eq).toBe(true);
+    expect(pml.zones).toHaveLength(0);
+    expect(pml.rsn).toMatch(/delayed/i);
   });
 
   test('mflCap flag true when zone sum would exceed MFL', () => {
