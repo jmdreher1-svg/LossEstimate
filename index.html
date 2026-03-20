@@ -311,12 +311,28 @@ function calcMFL(){
   return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:d.b,eP:d.e,iP:d.i,hrMeta};
 }
 
+// Hypothetical APL scenario: what would apply if sprinklers were adequate (used for deficient+no alarms PML)
+function hypAPLSc(){const isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";if(S.isStorage){if(S.hasFL)return"G";if(S.isSensitive)return S.protType==="esfr"?"I":S.protType==="cmsa"?"K":"D";return S.protType==="esfr"?"H":S.protType==="cmsa"?"J":"C";}if(S.isSensitive)return isLO?"B":"D";return isLO?"A":"C";}
+
 // PML
 function calcPML(){
   const v=gv(),mfl=calcMFL(),apl=calcAPL();
-  if(S.fdTime==="delayed"||primaryConst()==="comb"||S.hasCombConst||S.sprinklerAdequate==="none"||(S.sprinklerAdequate==="deficient"&&!S.alarmsOk)){
-    const rsn=S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":S.sprinklerAdequate==="none"?"No automatic sprinkler protection, so PML = MFL":(S.sprinklerAdequate==="deficient"&&!S.alarmsOk)?"Deficient sprinkler system with inadequate alarms/FD/PEO implies delayed response, so PML = MFL":"Combustible construction, so PML = MFL";
+  if(S.fdTime==="delayed"||primaryConst()==="comb"||S.hasCombConst||S.sprinklerAdequate==="none"){
+    const rsn=S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":S.sprinklerAdequate==="none"?"No automatic sprinkler protection, so PML = MFL":"Combustible construction, so PML = MFL";
     return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
+  if(S.sprinklerAdequate==="deficient"&&!S.alarmsOk){
+    const hSc=hypAPLSc(),designA=pf(S.designArea)||defDA();
+    if(hSc&&APL_SC[hSc]){const s=APL_SC[hSc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
+      const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
+      const aplFireA=rA(sys.fire.a);
+      let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
+      const sf=aplFireA>0?pmlFA/aplFireA:1;
+      let pB=0,pE=0,pI=0,zones=[];
+      ["fire","water","smoke"].forEach(t=>{const zd=sys[t];const aplZA=rA(zd.a);const pmlZA=Math.min(Math.round(aplZA*sf),v.a);const bD=(v.tb/v.a)*pmlZA,eD=(v.te/v.a)*pmlZA,iD=(v.ti/v.a)*pmlZA;pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:aplZA,pmlA:pmlZA,bPct:100,ePct:100,iPct:100,bD:rLE(bD),eD:rLE(eD),iD:rLE(iD)});});
+      pB=Math.min(pB,v.tb);pE=Math.min(pE,v.te);pI=Math.min(pI,v.ti);
+      let pT=rLE(pB+pE+pI);const mflCap=pT>mfl.pT;if(mflCap)pT=mfl.pT;
+      return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT,eq:true,rsn:"Deficient sprinkler system with inadequate alarms/FD/PEO: fire grows uncontrolled to PML fire area; 100% damage applied to all scenario zones",pmlFA,hypDesignA:designA,pmlAreaOverride:pf(S.pmlArea)>0,zones,hypSc:hSc,bP:100,eP:100,iP:100,mflCap};}
+    return{...mfl,eq:true,rsn:"Deficient sprinkler system with inadequate alarms/FD/PEO implies delayed response, so PML = MFL",pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   const o=MFL_T[primaryOcc()];if(!o||v.a===0)return{pB:0,pE:0,pI:0,pT:0,biM:0,eq:false,zones:[]};
   const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||defDA();
   let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
@@ -427,13 +443,41 @@ function genN(){
 
   if(pml.eq){
     p+=`${pml.rsn}.\n\n`;
-    p+=`Under these conditions, damage is determined by FP 5020 Table 4 (${occ}, ${ct}):\n`;
-    p+=`  Building:      ${fmtF(pml.pB)} (${pml.bP}%)\n`;
-    p+=`  Equipment/M&E: ${fmtF(pml.pE)} (${pml.eP}%)\n`;
-    p+=`  Inventory/WIP: ${fmtF(pml.pI)} (${pml.iP}%)\n`;
-    p+=`  ─────────────────────────────\n`;
-    p+=`  Total PML PD (= MFL): ${fmtF(pml.pT)}`;
-    if(pml.biM){p+=`\nBusiness Interruption: ${biText(pml.biM)}`;}
+    if(pml.zones&&pml.zones.length>0){
+      const aplFA=pml.zones[0].aplA;const sf=aplFA>0?(pml.pmlFA/aplFA):1;
+      p+=`Site Values (primary building):\n`;
+      p+=`  Building:      ${fmtF(v.tb)} total, ${cs()}${v.bpsf.toFixed(2)}/${aU()}\n`;
+      p+=`  Equipment/M&E: ${fmtF(v.te)} total, ${cs()}${v.epsf.toFixed(2)}/${aU()}\n`;
+      p+=`  Inventory/WIP: ${fmtF(v.ti)} total, ${cs()}${v.ipsf.toFixed(2)}/${aU()}\n\n`;
+      const dA=pml.hypDesignA||pf(S.designArea)||defDA();
+      if(pml.pmlAreaOverride){
+        p+=`PML Fire Area (user-specified): ${fN(Math.round(pml.pmlFA))} ${aU()}\n\n`;
+      } else {
+        p+=`PML Fire Area Derivation:\n`;
+        p+=`  With deficient sprinklers and no alarm notification, the fire is assumed to burn freely across the entire sprinkler design area (full hydraulic zone) plus 50% into the adjacent zone before fire department arrival:\n`;
+        p+=`    Full sprinkler zone (design area):    ${fN(dA)} ${aU()}\n`;
+        p+=`    Adjacent zone spread (+50%):         +${fN(Math.round(dA*0.5))} ${aU()}\n`;
+        p+=`    PML fire area (design area x 1.5):    ${fN(Math.round(pml.pmlFA))} ${aU()}\n\n`;
+        p+=`  Note: the APL fire zone under Scenario ${pml.hypSc} is only ${fN(aplFA)} ${aU()} — the area where active sprinkler suppression would have controlled the fire. The PML fire area (${fN(Math.round(pml.pmlFA))} ${aU()}) is based on the full sprinkler zone boundary, not 1.5x the APL fire zone.\n\n`;
+      }
+      p+=`Scale Factor: PML fire area ${fN(Math.round(pml.pmlFA))} ${aU()} ÷ APL Scenario ${pml.hypSc} fire zone ${fN(aplFA)} ${aU()} = ${sf.toFixed(2)}x\n\n`;
+      p+=`With no effective alarm or FD notification, fire burns freely to the PML fire area and 100% damage is assumed throughout all affected zones (fire, water, and smoke proportionally scaled from Scenario ${pml.hypSc}):\n\n`;
+      pml.zones.forEach(z=>{const tU=z.type.charAt(0).toUpperCase()+z.type.slice(1);p+=`${tU} Zone: ${fN(z.aplA)} ${aU()} (Scenario ${pml.hypSc}) x ${sf.toFixed(2)} = ${fN(z.pmlA)} ${aU()}\n`;p+=`  Bldg:  ${cs()}${v.bpsf.toFixed(2)}/${aU()} x 100% x ${fN(z.pmlA)} ${aU()} = ${fmtF(z.bD)}\n`;p+=`  Equip: ${cs()}${v.epsf.toFixed(2)}/${aU()} x 100% x ${fN(z.pmlA)} ${aU()} = ${fmtF(z.eD)}\n`;p+=`  Inv:   ${cs()}${v.ipsf.toFixed(2)}/${aU()} x 100% x ${fN(z.pmlA)} ${aU()} = ${fmtF(z.iD)}\n\n`;});
+      p+=`  Building:      ${fmtF(pml.pB)}\n`;
+      p+=`  Equipment/M&E: ${fmtF(pml.pE)}\n`;
+      p+=`  Inventory/WIP: ${fmtF(pml.pI)}\n`;
+      p+=`  ─────────────────────────────\n`;
+      p+=`  Total PML PD:  ${fmtF(pml.pT)}${pml.mflCap?" (limited to MFL)":""}`;
+      if(pml.biM){p+=`\nBusiness Interruption: ${biText(pml.biM)}`;}
+    } else {
+      p+=`Under these conditions, damage is determined by FP 5020 Table 4 (${occ}, ${ct}):\n`;
+      p+=`  Building:      ${fmtF(pml.pB)} (${pml.bP}%)\n`;
+      p+=`  Equipment/M&E: ${fmtF(pml.pE)} (${pml.eP}%)\n`;
+      p+=`  Inventory/WIP: ${fmtF(pml.pI)} (${pml.iP}%)\n`;
+      p+=`  ─────────────────────────────\n`;
+      p+=`  Total PML PD (= MFL): ${fmtF(pml.pT)}`;
+      if(pml.biM){p+=`\nBusiness Interruption: ${biText(pml.biM)}`;}
+    }
   } else {
     const da=pf(S.designArea)||defDA(), pa=pml.pmlFA||da*1.5;
     p+=`With the ${sysName} impaired, there is no containment of the fire until it reaches the boundary of the sprinkler system zone. The PML fire area is estimated at ${fN(Math.round(pa))} ${paU()}, based on the sprinkler design area of ${fN(da)} ${paU()} plus 50% for fire growth before external response limits the spread. The ${S.fdType==="fullypaid"?"fully-paid fire department":"fire department"} is assumed to respond and contain the fire in conjunction with physical separations.\n\n`;
@@ -774,6 +818,7 @@ function rRev(){
   <table style="width:100%;border-collapse:collapse;font-size:12px">
   <thead><tr style="border-bottom:2px solid var(--border)"><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Rev</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Date</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Author</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Status</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Description</th></tr></thead>
   <tbody>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.9</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Corrected PML logic for deficient sprinkler system with inadequate alarms/FD/PEO. Previously this condition forced PML = MFL (entire building at Table 4 percentages), which overcounted the loss. The PML now uses the hypothetical APL scenario that would apply if the deficiency did not exist, scales all three damage zones (fire, water, smoke) proportionally to the standard PML fire area (design area x 1.5), and applies 100% damage throughout — producing a scenario-grounded PML that is noticeably higher than APL but appropriately lower than MFL for most configurations. PML is capped at MFL if zone stacking causes it to exceed that threshold. Added hypAPLSc() helper to determine the hypothetical scenario. Narrative updated to show full zone-by-zone breakdown with scale factor. New tests added covering scenario selection, zone structure, damage percentages, ordering, and magnitude.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.8</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Removed hardcoded USD ($) currency symbol from all values, narratives, and UI labels. Added configurable currency dropdown on Site Info tab with 15 major world currencies (USD, EUR, GBP, JPY, CNY, CHF, CAD, AUD, HKD, SGD, SEK, NOK, DKK, KRW, BRL); default is no symbol per LPR convention. Added imperial/metric unit system toggle on Site Info tab. Area labels switch between sqft and m², distance labels switch between ft and m. All percentage-based calculations are unit-agnostic; MFL Table 3a separation thresholds are auto-converted to metric when selected. Default design area adjusts to 140 m² (metric) / 1,500 sqft (imperial). Narratives, UI badges, per-unit-area breakdowns, and input placeholders all reflect the selected unit and currency. No impact on calculation accuracy — existing saved data loads without issue.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.7</td><td style="padding:8px">03/19/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Bug fix: High-rise MFL was incorrectly applying Table 4 damage percentages (e.g., 40% building for FR Office) as direct damage factors. Table 4 percentages are correctly treated as the building condemnation threshold. High-rise MFL now uses a floor-by-floor calculation: 2 fire floors at 100%, smoke to 4 floors above at 20%, water to 6 floors below at 15% (no exterior spread); all floors at 100% (exterior spread). Calculated building damage % is compared to the Table 4 threshold — if met or exceeded, building is condemned (100% loss); otherwise only the calculated floor damage is used. MFL narrative now shows the floor-by-floor math with explicit condemnation check. PML BI duration updated to reflect engineering discretion (no FP 5020 guidance for PML BI); narrative notes APL BI as minimum floor. Mobile responsive layout improved: header, tabs, footer, and inputs optimized for narrow screens.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.6</td><td style="padding:8px">03/13/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Table 4 data corrections: Metal Smelting/Foundry HNC equip 70%→80%, LNC equip 70%→80%, Comb equip 80%→100%, Comb inventory 80%→100%. Warehousing (Refrigerated) FR BI 12→9 months, HNC BI 18→12 months. "Table 5" label corrected to "Table 4" throughout all narratives, UI badge, and code comments (Table 4 = MFL damage percentages; Table 5 = building condemnation threshold — not yet implemented). All 101 unit tests confirmed passing. Flagged: Chemical Processing occupancy not present in FP 5020 Rev E Table 4 — pending review.</td></tr>
