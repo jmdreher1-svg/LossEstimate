@@ -314,8 +314,8 @@ function calcMFL(){
 // PML
 function calcPML(){
   const v=gv(),mfl=calcMFL(),apl=calcAPL();
-  if(S.fdTime==="delayed"||primaryConst()==="comb"||S.hasCombConst){
-    const rsn=S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":"Combustible construction, so PML = MFL";
+  if(S.fdTime==="delayed"||primaryConst()==="comb"||S.hasCombConst||S.sprinklerAdequate==="none"||(S.sprinklerAdequate==="deficient"&&!S.alarmsOk)){
+    const rsn=S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":S.sprinklerAdequate==="none"?"No automatic sprinkler protection, so PML = MFL":(S.sprinklerAdequate==="deficient"&&!S.alarmsOk)?"Deficient sprinkler system with inadequate alarms/FD/PEO implies delayed response, so PML = MFL":"Combustible construction, so PML = MFL";
     return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   const o=MFL_T[primaryOcc()];if(!o||v.a===0)return{pB:0,pE:0,pI:0,pT:0,biM:0,eq:false,zones:[]};
   const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||defDA();
@@ -629,7 +629,7 @@ function r0(){
   ${S.sprinklerAdequate==="deficient"?fd("% of Design Provided",inp("designPct","80","number")):""}
   <div class="g2">${fd("Protection Configuration",sel("protType",[["standard","Standard (CMDA)"],["esfr","ESFR"],["cmsa","CMSA"]]))}${fd("Sprinkler Design Area ("+aU()+")",inp("designArea",S.units==="metric"?"140":"1500","number"))}</div>
   ${fd("Compartment / Room Area ("+aU()+")",inp("compArea","Entire building if open","number"))}
-  <div class="tgr">${tog("Significant FL/CL","hasFL")}${tog("Alarms, FD & PEO Adequate","alarmsOk")}</div></div>`;
+  <div class="tgr">${tog("Significant FL/CL","hasFL")}${S.sprinklerAdequate==="deficient"?tog("Alarms, FD & PEO Adequate","alarmsOk"):""}</div></div>`;
 }
 
 function r1(){
