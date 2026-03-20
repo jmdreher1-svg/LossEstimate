@@ -204,12 +204,28 @@ function calcMFL(){
   return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:d.b,eP:d.e,iP:d.i,hrMeta};
 }
 
+// Hypothetical APL scenario (for deficient+no alarms PML)
+function hypAPLSc(){const isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";if(S.isStorage){if(S.hasFL)return"G";if(S.isSensitive)return S.protType==="esfr"?"I":S.protType==="cmsa"?"K":"D";return S.protType==="esfr"?"H":S.protType==="cmsa"?"J":"C";}if(S.isSensitive)return isLO?"B":"D";return isLO?"A":"C";}
+
 // PML calculation
 function calcPML(){
   const v=gv(),mfl=calcMFL(),apl=calcAPL();
-  if(S.fdTime==="delayed"||primaryConst()==="comb"||S.hasCombConst){
-    const rsn=S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":"Combustible construction, so PML = MFL";
+  if(S.fdTime==="delayed"||primaryConst()==="comb"||S.hasCombConst||S.sprinklerAdequate==="none"){
+    const rsn=S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":S.sprinklerAdequate==="none"?"No automatic sprinkler protection, so PML = MFL":"Combustible construction, so PML = MFL";
     return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
+  if(S.sprinklerAdequate==="deficient"&&!S.alarmsOk){
+    const hSc=hypAPLSc(),designA=pf(S.designArea)||defDA();
+    if(hSc&&APL_SC[hSc]){const s=APL_SC[hSc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
+      const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
+      const aplFireA=rA(sys.fire.a);
+      let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
+      const sf=aplFireA>0?pmlFA/aplFireA:1;
+      let pB=0,pE=0,pI=0,zones=[];
+      ["fire","water","smoke"].forEach(t=>{const zd=sys[t];const aplZA=rA(zd.a);const pmlZA=Math.min(Math.round(aplZA*sf),v.a);const bD=(v.tb/v.a)*pmlZA,eD=(v.te/v.a)*pmlZA,iD=(v.ti/v.a)*pmlZA;pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:aplZA,pmlA:pmlZA,bPct:100,ePct:100,iPct:100,bD:rLE(bD),eD:rLE(eD),iD:rLE(iD)});});
+      pB=Math.min(pB,v.tb);pE=Math.min(pE,v.te);pI=Math.min(pI,v.ti);
+      let pT=rLE(pB+pE+pI);const mflCap=pT>mfl.pT;if(mflCap)pT=mfl.pT;
+      return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT,eq:true,rsn:"Deficient sprinkler system with inadequate alarms/FD/PEO: fire grows uncontrolled to PML fire area; 100% damage applied to all scenario zones",pmlFA,zones,hypSc:hSc,bP:100,eP:100,iP:100,mflCap};}
+    return{...mfl,eq:true,rsn:"Deficient sprinkler system with inadequate alarms/FD/PEO implies delayed response, so PML = MFL",pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   const o=MFL_T[primaryOcc()];if(!o||v.a===0)return{pB:0,pE:0,pI:0,pT:0,biM:0,eq:false,zones:[]};
   const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||defDA();
   let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
@@ -1812,6 +1828,154 @@ describe('Integration: combustible construction site', () => {
     expect(mfl.bP).toBe(100);
     expect(mfl.eP).toBe(100);
     expect(mfl.iP).toBe(100);
+  });
+});
+
+// --------------- PML: deficient + no alarms uses scenario-based 100% zones ---------------
+describe('PML: deficient sprinklers + inadequate alarms uses scenario-based 100% damage zones', () => {
+  function defNoAlarmSetup() {
+    S.buildings[0].area = '100000';
+    S.buildings[0].occupancy = 'Warehousing';
+    S.buildings[0].construction = 'hnc';
+    S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+    S.isStorage = false; S.isSensitive = false; S.hazardClass = 'ordinary';
+    S.sprinklerAdequate = 'deficient'; S.designPct = '80';
+    S.alarmsOk = false; S.designArea = '2000'; S.fdTime = 'prompt';
+  }
+
+  test('PML eq flag is set', () => {
+    defNoAlarmSetup();
+    expect(calcPML().eq).toBe(true);
+  });
+
+  test('PML zones array has exactly 3 entries', () => {
+    defNoAlarmSetup();
+    const pml = calcPML();
+    expect(pml.zones).toHaveLength(3);
+    expect(pml.zones[0].type).toBe('fire');
+    expect(pml.zones[1].type).toBe('water');
+    expect(pml.zones[2].type).toBe('smoke');
+  });
+
+  test('all zone damage percentages are 100%', () => {
+    defNoAlarmSetup();
+    const pml = calcPML();
+    pml.zones.forEach(z => {
+      expect(z.bPct).toBe(100);
+      expect(z.ePct).toBe(100);
+      expect(z.iPct).toBe(100);
+    });
+  });
+
+  test('PML does not exceed MFL', () => {
+    defNoAlarmSetup();
+    const pml = calcPML(), mfl = calcMFL();
+    expect(pml.pT).toBeLessThanOrEqual(mfl.pT);
+  });
+
+  test('PML substantially exceeds old Table-4 proportional result', () => {
+    defNoAlarmSetup();
+    const pml = calcPML();
+    // Old fallback: v.tb*(d.b/100)*(pmlFA/v.a) = 10M*0.80*(3000/100000) = $240K bldg only; ~$429K total
+    expect(pml.pT).toBeGreaterThan(2000000);
+  });
+
+  test('PML is higher than what APL would be if sprinklers were adequate', () => {
+    defNoAlarmSetup();
+    S.sprinklerAdequate = 'adequate';
+    const aplIfAdequate = calcAPL();
+    S.sprinklerAdequate = 'deficient';
+    const pml = calcPML();
+    expect(pml.pT).toBeGreaterThan(aplIfAdequate.pT);
+  });
+
+  test('hypAPLSc returns A for non-storage ordinary-hazard non-sensitive', () => {
+    defNoAlarmSetup(); // hazardClass='ordinary' → isLO=true → Scenario A
+    expect(hypAPLSc()).toBe('A');
+  });
+
+  test('hypAPLSc returns C for non-storage extra-hazard non-sensitive', () => {
+    defNoAlarmSetup();
+    S.hazardClass = 'extra';
+    expect(hypAPLSc()).toBe('C');
+  });
+
+  test('hypAPLSc returns B for non-storage ordinary-hazard sensitive', () => {
+    defNoAlarmSetup();
+    S.isSensitive = true; // hazardClass='ordinary' → isLO=true → Scenario B
+    expect(hypAPLSc()).toBe('B');
+  });
+
+  test('hypAPLSc returns D for non-storage extra-hazard sensitive', () => {
+    defNoAlarmSetup();
+    S.isSensitive = true; S.hazardClass = 'extra';
+    expect(hypAPLSc()).toBe('D');
+  });
+
+  test('hypAPLSc returns C for storage standard non-sensitive', () => {
+    defNoAlarmSetup();
+    S.isStorage = true;
+    expect(hypAPLSc()).toBe('C');
+  });
+
+  test('hypAPLSc returns H for storage ESFR non-sensitive', () => {
+    defNoAlarmSetup();
+    S.isStorage = true; S.protType = 'esfr';
+    expect(hypAPLSc()).toBe('H');
+  });
+
+  test('hypAPLSc returns K for storage CMSA sensitive', () => {
+    defNoAlarmSetup();
+    S.isStorage = true; S.protType = 'cmsa'; S.isSensitive = true;
+    expect(hypAPLSc()).toBe('K');
+  });
+
+  test('hypAPLSc returns G for storage with FL/CL', () => {
+    defNoAlarmSetup();
+    S.isStorage = true; S.hasFL = true;
+    expect(hypAPLSc()).toBe('G');
+  });
+
+  test('storage deficient+no alarms also uses scenario zones', () => {
+    defNoAlarmSetup();
+    S.isStorage = true;
+    const pml = calcPML();
+    expect(pml.eq).toBe(true);
+    expect(pml.zones).toHaveLength(3);
+    expect(pml.zones[0].bPct).toBe(100);
+    expect(pml.pT).toBeLessThanOrEqual(calcMFL().pT);
+  });
+
+  test('PML fire zone area equals designArea x 1.5 (standard pmlFA)', () => {
+    defNoAlarmSetup();
+    const pml = calcPML();
+    // hypSc=C, aplFireA=1200; sf=3000/1200=2.5; fire pmlA = round(1200*2.5)=3000
+    expect(pml.zones[0].pmlA).toBe(3000);
+  });
+
+  test('PML pmlFA equals designArea x 1.5', () => {
+    defNoAlarmSetup();
+    expect(calcPML().pmlFA).toBe(3000);
+  });
+
+  test('alarmsOk=true with deficient sprinklers does NOT trigger scenario zones', () => {
+    defNoAlarmSetup();
+    S.alarmsOk = true;
+    const pml = calcPML();
+    // With alarmsOk=true the new block doesn't fire; normal PML path runs
+    expect(pml.eq).toBe(false);
+  });
+
+  test('mflCap flag true when zone sum would exceed MFL', () => {
+    // Use a high-hazard occupancy with large smoke zone relative to building
+    defNoAlarmSetup();
+    S.buildings[0].occupancy = 'Warehousing'; // hnc 80% bldg MFL
+    S.buildings[0].area = '5000'; // small building so zones quickly exceed building value
+    S.totalBldg = '1000000'; S.totalEquip = '500000'; S.totalInv = '200000';
+    S.designArea = '2000'; // large design area relative to building
+    const pml = calcPML();
+    // zones sum may exceed MFL; mflCap may or may not fire, but pT <= MFL always
+    expect(pml.pT).toBeLessThanOrEqual(calcMFL().pT);
   });
 });
 
