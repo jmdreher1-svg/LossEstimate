@@ -91,6 +91,19 @@ html.dark .footer{box-shadow:0 -2px 10px rgba(0,0,0,.3)}
 .fv .fn{font-size:16px;font-weight:700;font-family:'DM Mono',monospace}
 .fv .fn.suc{color:var(--success)}.fv .fn.wrn{color:var(--warn)}.fv .fn.dng{color:var(--danger)}
 .pri-radio{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.apl-adj{margin-top:12px}
+.apl-zone-hdr{color:var(--accent);font-size:11px;font-weight:600;text-transform:uppercase;margin:10px 0 4px;letter-spacing:.5px}
+.apl-row{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:11px}
+.apl-row label{width:75px;color:var(--muted);flex-shrink:0;font-size:10px;text-transform:uppercase}
+.apl-row input[type=range]{flex:1;height:6px;-webkit-appearance:none;appearance:none;background:var(--ib);border-radius:3px;outline:none;cursor:pointer}
+.apl-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.apl-row input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;border:none}
+.apl-row input[type=number]{width:62px;padding:4px 6px;background:var(--ibg);border:1px solid var(--ib);border-radius:4px;color:var(--text);font-size:11px;font-family:'DM Mono',monospace;text-align:center;outline:none}
+.apl-row input[type=number]:focus{border-color:var(--accent)}
+.apl-row .pct-fixed{color:var(--dim);font-size:11px;min-width:40px;text-align:center}
+.apl-row .pct-tag{font-size:9px;color:var(--muted);margin-left:2px}
+.apl-reset{background:none;border:1px solid var(--border);border-radius:4px;padding:3px 10px;font-size:10px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif}
+.apl-reset:hover{color:var(--accent);border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -140,8 +153,10 @@ const S={
   pmlSystem:"sprinkler_riser",fdTime:"prompt",fdType:"fullypaid",pmlArea:"",hasCombConst:false,
   // MFL
   fw4hr:false,fwArea:"",
-  // High rise
+  // High rise (deprecated — kept for saved-state compat, no longer used in calculations)
   isHighRise:false,stories:"",hrFireFloors:"1",topFloorBelowFD:true,extSpreadPossible:false,extType:"none",floorToWindow:"",windowHeight:"",
+  // APL damage overrides: keyed as "SCENARIO_zone_type", e.g. "A_fire_b"
+  aplDmgOverrides:{},aplUnlockRange:false,
 };
 loadState();
 
@@ -165,6 +180,25 @@ function pct(v){return(v*100).toFixed(0)+"%"}
 function su(k,v){S[k]=v}
 function set(k,v){S[k]=v;render()}
 function ib(k,el){S[k]=el.value;render()}
+
+// APL damage override helpers
+function aplRange(baseVal,unlocked){
+  if(baseVal>=1)return null;
+  if(unlocked)return{min:0.005,max:1.0};
+  const m=Math.max(baseVal*0.4,0.025);
+  return{min:Math.max(Math.round((baseVal-m)*200)/200,0.005),max:Math.min(Math.round((baseVal+m)*200)/200,1.0)};
+}
+function aplDmg(sc,zone,key,baseVal){
+  const k=sc+'_'+zone+'_'+key;
+  if(S.aplDmgOverrides[k]!==undefined){
+    const v=S.aplDmgOverrides[k];
+    if(!S.aplUnlockRange){const r=aplRange(baseVal,false);if(r)return Math.max(r.min,Math.min(r.max,v));}
+    return v;
+  }
+  return baseVal;
+}
+function setAplDmg(sc,zone,key,val){S.aplDmgOverrides[sc+'_'+zone+'_'+key]=parseFloat(val);render()}
+function resetAplDmg(sc){Object.keys(S.aplDmgOverrides).forEach(k=>{if(k.startsWith(sc+'_'))delete S.aplDmgOverrides[k]});render()}
 
 // BUILDING HELPERS
 function pb(){return S.buildings[S.primaryIdx]||S.buildings[0]||{area:"",construction:"hnc",occupancy:"Warehousing"}}
@@ -232,13 +266,12 @@ function calcAPL(){
   const v=gv(),pctV=pf(S.designPct),isAdq=S.sprinklerAdequate==="adequate",noSprk=S.sprinklerAdequate==="none",is80=pctV>=80,isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";
   let sc=null,eq=false,R=[];const hasDef=countBold()>0;
   if(noSprk){eq=true;R.push("No sprinkler protection, so APL = PML");}
-  else if(S.isHighRise&&S.extType==="combustible"){eq=true;R.push("High-rise with combustible exterior cladding: exterior fire spread expected, APL = PML");}
   else if(S.isStorage){R.push("Storage occupancy (Figure 1A)");if(isAdq&&!hasDef){R.push("Sprinkler system reliable and fully adequate");if(S.hasFL){sc="G";R.push("Significant FL/CL present, Scenario G");}else if(S.isSensitive){sc=S.protType==="esfr"?"I":S.protType==="cmsa"?"K":"D";R.push("Sensitive + "+S.protType.toUpperCase()+", Scenario "+sc);}else{sc=S.protType==="esfr"?"H":S.protType==="cmsa"?"J":"C";R.push("Non-sensitive + "+S.protType.toUpperCase()+", Scenario "+sc);}}else{R.push(isAdq?"Adequate but deficiencies identified":"Not fully adequate");if(S.hasFL){eq=true;R.push("FL/CL with deficient system, APL = PML");}else if(!is80&&!isAdq){eq=true;R.push("Less than 80% of design, APL = PML");}else if(!S.alarmsOk&&!isAdq){eq=true;R.push("Alarms/FD/PEO inadequate, APL = PML");}else if(hasDef){const t=getT1B();R.push(t.rsn);if(t.eq)eq=true;else if(t.sc)sc=t.sc;else sc="G";}else{sc="G";R.push("At least 80% design, Scenario G");}}}
   else{R.push("Non-storage (Figure "+(S.isSensitive?"1C":"1B")+")");if(isAdq&&!hasDef){R.push("Sprinkler system reliable and fully adequate");if(S.isSensitive){sc=isLO?"B":S.hasFL?"F":"D";}else{sc=isLO?"A":S.hasFL?"E":"C";}R.push("Scenario "+sc);}else{R.push(isAdq?"Adequate but deficiencies":"Not fully adequate");if(!is80&&!isAdq){eq=true;R.push("Less than 80% of design, APL = PML");}else if(S.hasFL){eq=true;R.push("FL/CL present, APL = PML");}else if(!S.alarmsOk&&!isAdq){eq=true;R.push("Alarms/FD/PEO inadequate, APL = PML");}else if(hasDef){const t=getT1B();R.push(t.rsn);if(t.eq)eq=true;else if(t.sc)sc=t.sc;else sc=S.isSensitive?"F":"E";}else{sc=S.isSensitive?"F":"E";R.push("Scenario "+sc);}}}
   let pB=0,pE=0,pI=0,bi="";
   if(sc&&APL_SC[sc]&&v.a>0){const s=APL_SC[sc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;bi=s.bi;
     const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(pf(S.designArea)||defDA(),v.a);if(x==="2x")return Math.min((pf(S.designArea)||defDA())*2,v.a);if(x==="5x")return Math.min((pf(S.designArea)||defDA())*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
-    ["fire","water","smoke"].forEach(t=>{const d=sys[t],ar=rA(d.a);pB+=(v.tb/v.a)*d.b*ar;pE+=(v.te/v.a)*d.e*ar;pI+=(v.ti/v.a)*d.i*ar;});}
+    ["fire","water","smoke"].forEach(t=>{const d=sys[t],ar=rA(d.a);pB+=(v.tb/v.a)*aplDmg(sc,t,'b',d.b)*ar;pE+=(v.te/v.a)*aplDmg(sc,t,'e',d.e)*ar;pI+=(v.ti/v.a)*aplDmg(sc,t,'i',d.i)*ar;});}
   return{sc,eq,R,pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT:rLE(pB+pE+pI),bi};
 }
 
@@ -280,35 +313,12 @@ function calcMFL(){
   const atRiskEquip=rLE(siteTe*atRiskFrac);
   const atRiskInv=rLE(siteTi*atRiskFrac);
 
-  // High-rise MFL: floor-by-floor damage calculation; Table 4 % used as condemnation threshold
-  // (Table 5 condemnation thresholds not yet in data — Table 4 % used as proxy)
-  let pB,pE,pI,hrMeta={isHR:false};
-  if(S.isHighRise){
-    const nFloors=Math.max(pf(S.stories)||1,1);
-    if(S.extSpreadPossible){
-      // Exterior spread: fire runs full building height — total loss of all at-risk property
-      pB=atRiskBldg;pE=atRiskEquip;pI=atRiskInv;
-      hrMeta={isHR:true,extSpread:true,nFloors,condemned:true,bldgDmgPct:100,contsFrac:1};
-    } else {
-      // No exterior spread: 2 fire floors at 100%, 4 smoke above at 20%, 6 water below at 15%
-      const fireF=Math.min(2,nFloors);
-      const smokeF=Math.min(4,Math.max(nFloors-fireF,0));
-      const waterF=Math.min(6,nFloors);
-      const bldgDmgFrac=fireF/nFloors+(smokeF/nFloors)*0.20;
-      const bldgDmgPct=bldgDmgFrac*100;
-      const condemned=bldgDmgPct>=d.b;
-      pB=condemned?atRiskBldg:rLE(atRiskBldg*bldgDmgFrac);
-      const contsFrac=Math.min(fireF/nFloors+(smokeF/nFloors)*0.20+(waterF/nFloors)*0.15,1);
-      pE=rLE(atRiskEquip*contsFrac);pI=rLE(atRiskInv*contsFrac);
-      hrMeta={isHR:true,extSpread:false,nFloors,fireF,smokeF,waterF,bldgDmgFrac,bldgDmgPct,condemned,condemnThresh:d.b,contsFrac};
-    }
-  } else {
-    pB=rLE(atRiskBldg*(d.b/100));pE=rLE(atRiskEquip*(d.e/100));pI=rLE(atRiskInv*(d.i/100));
-  }
+  // Apply Table 4 (MFL_T) damage percentages
+  let pB=rLE(atRiskBldg*(d.b/100)),pE=rLE(atRiskEquip*(d.e/100)),pI=rLE(atRiskInv*(d.i/100));
   const pT=Math.max(pB+pE+pI,0);
 
   const biM=d.bi;
-  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:d.b,eP:d.e,iP:d.i,hrMeta};
+  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:d.b,eP:d.e,iP:d.i};
 }
 
 // Hypothetical APL scenario: what would apply if sprinklers were adequate (used for deficient+no alarms PML)
@@ -355,19 +365,12 @@ function calcPML(){
   return{biM:d.bi,pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT,bV:rLE(v.by/12*d.bi),eq:false,rsn:"",aplFloor,pmlFA,zones,bP:d.b,eP:d.e,iP:d.i};
 }
 
-// High rise helpers
-function hrFF(){return pf(S.hrFireFloors)||1}
-function hrSF(){const f=hrFF();return f===1?2:f===2?3:4}
-function hrWF(){const f=hrFF();return f===1?2:f===2?5:6}
-
 // Narrative
 function genN(){
   const apl=calcAPL(),pml=calcPML(),mfl=calcMFL(),v=gv();
   const ct=CL[primaryConst()]||"",occ=primaryOcc(),sys=S.sprinklerType==="wet"?"wet pipe":"dry pipe";
   const sysName=SYS_LABELS[S.pmlSystem]||"fire protection system";
-  const hr=S.isHighRise;
   const primaryFloors=pf(pb().floors);
-  const hrN=hr?` This is a ${pf(S.stories)}-story high-rise building with the top occupied floor ${S.topFloorBelowFD?"within":"above"} the effective reach of fire department aerial equipment.`:"";
 
   // BI helper: returns appropriate BI text based on mode
   function biText(months){
@@ -380,7 +383,7 @@ function genN(){
   }
 
   // ===== APL =====
-  let a=`The Anticipated Probable Loss (APL) estimate assumes all fire protection systems operate as installed and that emergency response personnel, both the site's Plant Emergency Organization (PEO) and public fire agencies, respond in accordance with existing plans.${hrN}\n\n`;
+  let a=`The Anticipated Probable Loss (APL) estimate assumes all fire protection systems operate as installed and that emergency response personnel, both the site's Plant Emergency Organization (PEO) and public fire agencies, respond in accordance with existing plans.\n\n`;
 
   if(apl.eq){
     a+=`Due to ${S.sprinklerAdequate==="none"?"the absence of automatic sprinkler protection":"identified protection deficiencies"}, the APL is equal to the PML for this facility. Refer to the PML narrative for the loss scenario and supporting calculations.\n\n`;
@@ -404,12 +407,14 @@ function genN(){
 
     ["fire","water","smoke"].forEach(t=>{
       const d=sysD[t],ar=rA(d.a);
-      const bD=(v.tb/v.a)*d.b*ar, eD=(v.te/v.a)*d.e*ar, iD=(v.ti/v.a)*d.i*ar;
+      const eb=aplDmg(apl.sc,t,'b',d.b),ee=aplDmg(apl.sc,t,'e',d.e),ei=aplDmg(apl.sc,t,'i',d.i);
+      const bD=(v.tb/v.a)*eb*ar, eD=(v.te/v.a)*ee*ar, iD=(v.ti/v.a)*ei*ar;
       const tU=t.charAt(0).toUpperCase()+t.slice(1);
+      const adj=k=>{const ok=apl.sc+'_'+t+'_'+k;return S.aplDmgOverrides[ok]!==undefined?' (adjusted)':''};
       a+=`${tU} Damage Zone: ${rAL(d.a)}\n`;
-      a+=`  Bldg:  ${cs()}${v.bpsf.toFixed(2)}/${aU()} x ${pct(d.b)} x ${fN(ar)} ${aU()} = ${fmtF(rLE(bD))}\n`;
-      a+=`  Equip: ${cs()}${v.epsf.toFixed(2)}/${aU()} x ${pct(d.e)} x ${fN(ar)} ${aU()} = ${fmtF(rLE(eD))}\n`;
-      a+=`  Inv:   ${cs()}${v.ipsf.toFixed(2)}/${aU()} x ${pct(d.i)} x ${fN(ar)} ${aU()} = ${fmtF(rLE(iD))}\n\n`;
+      a+=`  Bldg:  ${cs()}${v.bpsf.toFixed(2)}/${aU()} x ${pct(eb)} x ${fN(ar)} ${aU()} = ${fmtF(rLE(bD))}${adj('b')}\n`;
+      a+=`  Equip: ${cs()}${v.epsf.toFixed(2)}/${aU()} x ${pct(ee)} x ${fN(ar)} ${aU()} = ${fmtF(rLE(eD))}${adj('e')}\n`;
+      a+=`  Inv:   ${cs()}${v.ipsf.toFixed(2)}/${aU()} x ${pct(ei)} x ${fN(ar)} ${aU()} = ${fmtF(rLE(iD))}${adj('i')}\n\n`;
     });
 
     a+=`  Building:      ${fmtF(apl.pB)}\n`;
@@ -435,18 +440,13 @@ function genN(){
     }
     a+=`Business Interruption: ${apl.bi}${aplBiDollar} (per Table 1A, Scenario ${apl.sc})`;
   }
-  if(!hr&&primaryFloors>1){
-    a+=`\n\nMulti-Story Building Note (FP 5020 Page 7):\nFor this ${primaryFloors}-story non-high-rise building, water damage should be considered on 2–3 floors directly below the sprinkler operating area, with each lower floor sustaining a lesser degree of damage. The same applies to smoke damage on 2–3 floors above the sprinkler operating area. The fire, water, and smoke zone areas in the APL calculation above represent the primary floor impact; supplemental adjacent-floor effects should be evaluated based on floor layout and separation.`;
-  }
-  if(hr){
-    a+=`\n\nHigh-Rise Multi-Story Note (FP 5020 Page 7):\nSmoke and water damage in high-rise structures can extend 2–3 floors above and below the sprinkler operating area, each with a lesser degree of damage. This is especially significant in high-rise scenarios due to vertical propagation through stairwells, mechanical shafts, and open penetrations.`;
-    if(S.extType==="combustible"){a+=` This building has combustible exterior cladding (EIFS / IMP / ACM). With exterior fire spread expected, APL = PML for this facility.`;}
-    else{a+=` Where significant sprinkler issues or significant external fire exposure are present in a high-rise, APL = PML.`;}
+  if(primaryFloors>1){
+    a+=`\n\nMulti-Story Building Note (FP 5020 Page 7):\nFor this ${primaryFloors}-story building, water damage should be considered on 2–3 floors directly below the sprinkler operating area, with each lower floor sustaining a lesser degree of damage. The same applies to smoke damage on 2–3 floors above the sprinkler operating area. The fire, water, and smoke zone areas in the APL calculation above represent the primary floor impact; supplemental adjacent-floor effects should be evaluated based on floor layout and separation.`;
   }
   S.aplN=a;
 
   // ===== PML =====
-  let p=`The Probable Maximum Loss (PML) estimate assumes a single impairment to the fire protection system at the time of the incident, specifically the ${sysName} being out of service. Emergency response personnel are assumed to respond in accordance with existing plans, though notification may be delayed due to the impaired system.${hrN}\n\n`;
+  let p=`The Probable Maximum Loss (PML) estimate assumes a single impairment to the fire protection system at the time of the incident, specifically the ${sysName} being out of service. Emergency response personnel are assumed to respond in accordance with existing plans, though notification may be delayed due to the impaired system.\n\n`;
 
   if(pml.eq){
     p+=`${pml.rsn}.\n\n`;
@@ -521,34 +521,12 @@ function genN(){
     p+=`Business Interruption: ${biText(pml.biM)}\nNote: FP 5020 provides no specific BI duration guidance for PML. Duration is engineering discretion and should be no less than the APL BI duration.${aplBiMin}`;
   }
 
-  if(hr){
-    const Hv=pf(S.floorToWindow),hv=pf(S.windowHeight),rat=hv>0?Hv/hv:0;
-    const en=S.extType==="combustible"?"Combustible exterior cladding is present, so exterior fire spread is assumed."
-      :S.extType!=="none"&&Hv>0&&hv>0?`The H/h ratio is ${rat.toFixed(2)} (${S.extType==="closed"?"2.8 required for closed windows":"3.8 required for openable windows"}). Exterior spread is ${S.extSpreadPossible?"possible":"not expected"}.`
-      :"No combustible exterior or openable windows, so no exterior fire spread.";
-    const ff=hrFF(),sf=hrSF(),wf=hrWF();
-    const nFloors=pf(S.stories)||1;
-    const perFloorAvg=rLE((v.tb+v.te+v.ti)/nFloors);
-    const perFloorContHR=rLE((v.te+v.ti)/nFloors);
-    const hrFireDmg=rLE(ff*perFloorAvg);
-    const hrSmokeDmg=rLE(sf*perFloorContHR*0.20);
-    const hrWaterDmg=rLE(wf*perFloorContHR*0.15);
-    p+=`\n\nHigh-Rise PML per Figure 2 and Table 2: ${en}\n`;
-    p+=`Fire Floors Involved (Table 2): ${ff} floor(s) — 100% of average structure and contents value per floor\n`;
-    p+=`  Average structure + contents per floor: ${fmtF(perFloorAvg)} (${fmtF(v.tb+v.te+v.ti)} total ÷ ${nFloors} floors)\n`;
-    p+=`  Fire damage:  ${ff} floor(s) × ${fmtF(perFloorAvg)} × 100% = ${fmtF(hrFireDmg)}\n`;
-    p+=`  Smoke above: ${sf} floor(s) × ${fmtF(perFloorContHR)} contents/floor × 20% = ${fmtF(hrSmokeDmg)}\n`;
-    p+=`  Water below: ${wf} floor(s) × ${fmtF(perFloorContHR)} contents/floor × 15% = ${fmtF(hrWaterDmg)}\n`;
-    p+=`  ─────────────────────────────\n`;
-    p+=`  Total High-Rise PML: ${fmtF(rLE(hrFireDmg+hrSmokeDmg+hrWaterDmg))}`;
-  }
-
-  if(!hr&&primaryFloors>1){
+  if(primaryFloors>1){
     const perFloorContents=rLE((v.te+v.ti)/primaryFloors);
     const smokeAbove=rLE(perFloorContents*0.20);
     const waterBelow=rLE(perFloorContents*0.15);
     const pmlTotal=rLE(pml.pT+smokeAbove+waterBelow);
-    p+=`\n\nMulti-Story Building — Adjacent Floor Damage (FP 5020 Page 7):\nThis ${primaryFloors}-story non-high-rise building requires consideration of smoke and water damage on floors adjacent to the fire floor.\n`;
+    p+=`\n\nMulti-Story Building — Adjacent Floor Damage (FP 5020 Page 7):\nThis ${primaryFloors}-story building requires consideration of smoke and water damage on floors adjacent to the fire floor.\n`;
     p+=`  Contents value per floor: (${fmtF(v.te)} equip + ${fmtF(v.ti)} inv) ÷ ${primaryFloors} floors = ${fmtF(perFloorContents)}/floor\n`;
     p+=`  Base PML (fire floor):    ${fmtF(pml.pT)}\n`;
     p+=`  Smoke above (1 floor):   +${fmtF(smokeAbove)} (20% × ${fmtF(perFloorContents)} contents/floor)\n`;
@@ -559,7 +537,7 @@ function genN(){
   S.pmlN=p;
 
   // ===== MFL =====
-  let m=`The Maximum Foreseeable Loss (MFL) estimate assumes the complete failure of all active fire suppression systems and no effective response from the site PEO or public fire agencies. Actual damage percentages are determined by construction type and occupancy per FP 5020 Table 4.${hrN}\n\n`;
+  let m=`The Maximum Foreseeable Loss (MFL) estimate assumes the complete failure of all active fire suppression systems and no effective response from the site PEO or public fire agencies. Actual damage percentages are determined by construction type and occupancy per FP 5020 Table 4.\n\n`;
 
   m+=`Total Site Property Damage: ${fmtF(mfl.sitePD)}\n`;
   m+=`  Building:      ${fmtF(v.tb)}\n`;
@@ -584,53 +562,16 @@ function genN(){
   if(mfl.exclPD>0) m+=`\n  Separated Buildings:  -${fmtF(mfl.exclPD)}`;
   if(mfl.fwReduction>0||mfl.exclPD>0){m+=`\n  ─────────────────────────────\n  At-Risk Property:      ${fmtF(mfl.atRiskTotal)}`;}
 
-  if(hr&&mfl.hrMeta&&mfl.hrMeta.isHR){
-    // High-rise MFL: floor-by-floor calculation; Table 4 % used as condemnation threshold
-    const hm=mfl.hrMeta;
-    const en2=S.extType==="combustible"?"The building has combustible exterior cladding, so exterior fire spread is assumed."
-      :S.extType!=="none"&&pf(S.floorToWindow)>0&&pf(S.windowHeight)>0?`H/h ratio is ${(pf(S.floorToWindow)/pf(S.windowHeight)).toFixed(2)}.`:"";
-    m+=`\n\nHigh-Rise MFL (floor-by-floor per Figure 2): ${en2}\n`;
-    m+=`Note: Table 4 damage percentages (${mfl.bP}% bldg / ${mfl.eP}% equip / ${mfl.iP}% inv) serve as the building condemnation threshold — not the damage calculation factor. Actual damage is determined by floors involved.\n\n`;
-    if(hm.extSpread){
-      m+=`Exterior fire spread assumed — fire progresses from ground floor to top. All floors sustain 100% damage.\n`;
-      m+=`  Building (total loss, condemned): ${fmtF(mfl.pB)}\n`;
-      m+=`  Equipment/M&E (total loss):       ${fmtF(mfl.pE)}\n`;
-      m+=`  Inventory/WIP (total loss):       ${fmtF(mfl.pI)}\n`;
-      m+=`  BI: 18 to 24 months\n`;
-    } else {
-      m+=`No exterior spread. Fire originates on floor below greatest value, progresses one floor up.\n`;
-      m+=`  Total floors: ${hm.nFloors}\n`;
-      m+=`  Fire floors: ${hm.fireF} floor(s) at 100%\n`;
-      m+=`  Smoke above: ${hm.smokeF} floor(s) at 20% (contents only)\n`;
-      m+=`  Water below: ${hm.waterF} floor(s) at 15% (contents only)\n\n`;
-      m+=`Building condemnation check (Table 4 threshold: ${hm.condemnThresh}%):\n`;
-      m+=`  Building damage = ${hm.fireF}/${hm.nFloors} floors × 100% + ${hm.smokeF}/${hm.nFloors} floors × 20% = ${hm.bldgDmgPct.toFixed(1)}%\n`;
-      if(hm.condemned){
-        m+=`  ${hm.bldgDmgPct.toFixed(1)}% ≥ ${hm.condemnThresh}% threshold → Building is condemned → 100% building loss\n`;
-        m+=`  Building (condemned, total loss): ${fmtF(mfl.pB)}\n`;
-      } else {
-        m+=`  ${hm.bldgDmgPct.toFixed(1)}% < ${hm.condemnThresh}% threshold → Building repairable\n`;
-        m+=`  Building (${hm.bldgDmgPct.toFixed(1)}% × ${fmtF(mfl.atRiskBldg)}): ${fmtF(mfl.pB)}\n`;
-      }
-      const contsPct=(hm.contsFrac*100).toFixed(1);
-      m+=`  Equipment/M&E (${contsPct}% blended damage × ${fmtF(mfl.atRiskEquip)}): ${fmtF(mfl.pE)}\n`;
-      m+=`  Inventory/WIP (${contsPct}% blended damage × ${fmtF(mfl.atRiskInv)}): ${fmtF(mfl.pI)}\n`;
-      m+=`  BI: 9 to 12 months\n`;
-    }
-    m+=`  ─────────────────────────────\n`;
-    m+=`  Total MFL PD: ${fmtF(mfl.pT)}`;
-  } else {
-    m+=`\n\nTable 4 Damage Percentages (${occ}, ${ct}):\n`;
-    m+=`  Building structure: ${mfl.bP}%\n`;
-    m+=`  Equipment/M&E:      ${mfl.eP}%\n`;
-    m+=`  Inventory/WIP:      ${mfl.iP}%\n\n`;
-    m+=`MFL Property Damage:\n`;
-    m+=`  Building:      ${fmtF(mfl.atRiskBldg)} × ${mfl.bP}% = ${fmtF(mfl.pB)}\n`;
-    m+=`  Equipment/M&E: ${fmtF(mfl.atRiskEquip)} × ${mfl.eP}% = ${fmtF(mfl.pE)}\n`;
-    m+=`  Inventory/WIP: ${fmtF(mfl.atRiskInv)} × ${mfl.iP}% = ${fmtF(mfl.pI)}\n`;
-    m+=`  ─────────────────────────────\n`;
-    m+=`  Total MFL PD:  ${fmtF(mfl.pT)}`;
-  }
+  m+=`\n\nTable 4 Damage Percentages (${occ}, ${ct}):\n`;
+  m+=`  Building structure: ${mfl.bP}%\n`;
+  m+=`  Equipment/M&E:      ${mfl.eP}%\n`;
+  m+=`  Inventory/WIP:      ${mfl.iP}%\n\n`;
+  m+=`MFL Property Damage:\n`;
+  m+=`  Building:      ${fmtF(mfl.atRiskBldg)} × ${mfl.bP}% = ${fmtF(mfl.pB)}\n`;
+  m+=`  Equipment/M&E: ${fmtF(mfl.atRiskEquip)} × ${mfl.eP}% = ${fmtF(mfl.pE)}\n`;
+  m+=`  Inventory/WIP: ${fmtF(mfl.atRiskInv)} × ${mfl.iP}% = ${fmtF(mfl.pI)}\n`;
+  m+=`  ─────────────────────────────\n`;
+  m+=`  Total MFL PD:  ${fmtF(mfl.pT)}`;
 
   m+=`\n\nBusiness Interruption: ${biText(mfl.biM)} (per Table 4, ${occ}, ${ct})`;
   S.mflN=m;
@@ -706,6 +647,42 @@ function rBI(){
   <div class="g3">${vc("Annual BI",fmtF(biD),"","wrn")}${vc("Monthly Rate",fmtF(biD/12))}${vc("Total PD",fmt(v.pd))}</div></div>`;
 }
 
+function aplSliderUI(sc){
+  if(!sc||!APL_SC[sc])return'';
+  const s=APL_SC[sc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
+  const zones=[["fire","Fire"],["water","Water"],["smoke","Smoke"]];
+  const types=[["b","Building"],["e","Equipment"],["i","Inventory"]];
+  let hasAny=false;
+  zones.forEach(([z])=>types.forEach(([k])=>{if(sys[z][k]<1)hasAny=true}));
+  if(!hasAny)return'';
+  let h='<div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">APL Damage Adjustments (Table 1A)</h3><button class="apl-reset" onclick="resetAplDmg(\''+sc+'\')">Reset to Table 1A</button></div>';
+  h+='<div class="note">Adjust damage percentages within Table 1A range for Scenario '+sc+'. Use the text input to type a precise value. Check "Unlock Range" to allow values outside the standard bounds.</div>';
+  h+='<div class="tgr" style="margin-bottom:10px">'+tog("Unlock Range","aplUnlockRange")+'</div>';
+  zones.forEach(([z,zl])=>{
+    h+='<div class="apl-zone-hdr">'+zl+' Zone</div>';
+    types.forEach(([k,kl])=>{
+      const base=sys[z][k];
+      if(base>=1){h+='<div class="apl-row"><label>'+kl+'</label><span class="pct-fixed">100%</span></div>';return;}
+      const oKey=sc+'_'+z+'_'+k;
+      const cur=S.aplDmgOverrides[oKey]!==undefined?S.aplDmgOverrides[oKey]:base;
+      const r=aplRange(base,S.aplUnlockRange);
+      const step=0.005;
+      const isOverridden=S.aplDmgOverrides[oKey]!==undefined;
+      h+='<div class="apl-row">';
+      h+='<label>'+kl+'</label>';
+      h+='<input type="range" min="'+r.min+'" max="'+r.max+'" step="'+step+'" value="'+cur+'" oninput="setAplDmg(\''+sc+'\',\''+z+'\',\''+k+'\',this.value)">';
+      h+='<input type="number" min="'+(S.aplUnlockRange?0.005:r.min)+'" max="'+(S.aplUnlockRange?1:r.max)+'" step="'+step+'" value="'+cur.toFixed(3)+'" onchange="setAplDmg(\''+sc+'\',\''+z+'\',\''+k+'\',this.value)">';
+      h+='<span class="pct-tag">'+(cur*100).toFixed(1)+'%'+(isOverridden?' *':'')+'</span>';
+      h+='</div>';
+    });
+  });
+  h+='<div style="margin-top:8px;font-size:10px;color:var(--dim)">* = adjusted from Table 1A default. Table 1A values: ';
+  const defaults=[];
+  zones.forEach(([z,zl])=>types.forEach(([k,kl])=>{const base=sys[z][k];if(base<1)defaults.push(zl+' '+kl+': '+pct(base))}));
+  h+=defaults.join(', ')+'</div></div>';
+  return h;
+}
+
 function r2(){
   genN();const apl=calcAPL(),pml=calcPML();const showP=apl.eq;
   return`<div class="cd"><h3 class="ct">Table 1B, Sprinkler Deficiencies</h3>
@@ -723,6 +700,7 @@ function r2(){
   <div class="rbox"><div class="rt">Decision Path</div>${apl.R.map(r=>`<div class="ri"><span class="ar">></span>${esc(r)}</div>`).join('')}</div>
   <div class="g3" style="margin-bottom:6px">${vc("Building",fmt(showP?pml.pB:apl.pB))}${vc("Equipment",fmt(showP?pml.pE:apl.pE))}${vc("Inv/WIP",fmt(showP?pml.pI:apl.pI))}</div>
   <div class="g2">${vc("Total APL PD",fmt(showP?pml.pT:apl.pT),"","dng")}${vc("BI",showP?(pml.biM+" months"):(apl.bi||"N/A"),"","wrn")}</div></div>
+  ${aplSliderUI(apl.sc)}
   <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">APL Narrative</h3><button class="bnc" onclick="copyEl('aplTA')">Copy</button></div>
   ${fd("",`<textarea id="aplTA" oninput="su('aplN',this.value)" onblur="ib('aplN',this)">${esc(S.aplN)}</textarea>`)}</div>`;
 }
@@ -790,34 +768,20 @@ function r5(){
 }
 
 function r6(){
-  const H=pf(S.floorToWindow),h=pf(S.windowHeight),rat=h>0?H/h:0;
-  let extR="";if(!S.isHighRise)extR="";
-  else if(S.extType==="combustible"){S.extSpreadPossible=true;extR="Combustible construction materials on the exterior. External fire spread should be assumed for all floors where these materials are used.";}
-  else if(S.extType==="none"){S.extSpreadPossible=false;extR="Blank exterior wall or mechanical floor serves as a vertical fire stop. No exterior fire spread.";}
-  else if(S.extType==="closed"&&H>0&&h>0){if(rat>=2.8){S.extSpreadPossible=false;extR=`H/h = ${H} / ${h} = ${rat.toFixed(2)}, which meets the 2.8 threshold. No exterior fire spread with closed windows.`;}else{S.extSpreadPossible=true;extR=`H/h = ${H} / ${h} = ${rat.toFixed(2)}, which is below the 2.8 threshold. Exterior fire spread is possible with closed windows.`;}}
-  else if(S.extType==="open"&&H>0&&h>0){if(rat>=3.8){S.extSpreadPossible=false;extR=`H/h = ${H} / ${h} = ${rat.toFixed(2)}, which meets the 3.8 threshold. No exterior fire spread with openable windows.`;}else{S.extSpreadPossible=true;extR=`H/h = ${H} / ${h} = ${rat.toFixed(2)}, which is below the 3.8 threshold. Exterior fire spread is possible with openable windows.`;}}
-  return`<div class="cd"><h3 class="ct">High Rise Configuration</h3>
-  <div class="note">For buildings where the top floor exceeds the effective reach of fire department aerial equipment (generally 60 to 100 ft above grade).</div>
-  <div class="tgr" style="margin-bottom:12px">${tog("High Rise Building","isHighRise")}</div>
-  ${S.isHighRise?`<div class="note" style="background:rgba(176,122,16,.06);border-color:rgba(176,122,16,.2);color:var(--warn)">Important: When evaluating a high-rise building, go back to the Site Info tab and confirm that the primary building occupancy type (currently set to ${primaryOcc()}) correctly reflects the occupancy of this high-rise structure. The APL, PML, and MFL calculations are all driven by the occupancy and construction type of the primary building.</div>
-  ${fd("Number of Stories",inp("stories","","number"))}
-  <div class="tgr" style="margin-bottom:12px">${tog("Top floor below max reach of FD aerial equipment","topFloorBelowFD")}</div></div>
-  <div class="cd"><h3 class="ct">Exterior Fire Spread (FMDS 1-3)</h3>
-  <div class="note">Per FM Data Sheet 1-3, exterior fire spread is not normally possible when the distance from the floor slab to the bottom of the window glass above (H) is at least 2.8 times the window height (h) for closed windows, or 3.8 times for openable windows.</div>
-  ${fd("Window Condition",sel("extType",[["none","Blank wall / mechanical floor"],["closed","Closed or fixed windows"],["open","Openable windows"],["combustible","Combustible cladding (EIFS / IMP / ACM)"]]))}
-  ${S.extType==="closed"||S.extType==="open"?`<div class="g2">${fd("H: Floor slab to window glass above (ft)",inp("floorToWindow","","number"))}${fd("h: Window height (ft)",inp("windowHeight","","number"))}</div>
-  ${H>0&&h>0?`<div style="background:var(--ibg);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:11px">
-    <strong style="color:var(--accent)">H / h = ${H} / ${h} = ${rat.toFixed(2)}</strong><br>
-    ${S.extType==="closed"?"Required for closed windows: 2.8 (minimum H = "+(h*2.8).toFixed(1)+" ft)":"Required for openable windows: 3.8 (minimum H = "+(h*3.8).toFixed(1)+" ft)"}
-  </div>`:''}`:''}
-  ${extR?`<div class="${S.extSpreadPossible?'sep-bad':'sep-ok'}" style="margin-top:8px">${S.extSpreadPossible?'✗':'✓'} ${extR}</div>`:''}
-  </div>
-  <div class="cd"><h3 class="ct">PML, High Rise (Figure 2 / Table 2)</h3>
-  ${fd("Fire Floors Involved (Table 2)",sel("hrFireFloors",[["1","1 — Smoke to 2 floors above, Water to 2 floors below"],["2","2 — Smoke to 3 floors above, Water to 5 floors below"],["3","3 — Smoke to 4 floors above, Water to 6 floors below"]]))}
-  <div style="font-size:12px;line-height:1.7;margin-top:6px">Fire Floors: <strong>${hrFF()}</strong> | Smoke: 20% to <strong>${hrSF()}</strong> floors above | Water: 15% to <strong>${hrWF()}</strong> floors below</div></div>
-  <div class="cd"><h3 class="ct">MFL, High Rise</h3>
-  <div style="font-size:12px;line-height:1.7">${!S.extSpreadPossible?"No exterior spread. Fire on floor below greatest value, progresses 1 floor up. 2 fire floors at 100%. Smoke 20% to 4 floors above, water 15% to 6 floors below. BI 9 to 12 months.":"Exterior spread possible. Fire from ground floor to fire-stop or top of building. 100% damage all involved floors. Smoke 20% to 6 floors above, water 15% to 10 floors below. BI 18 to 24 months."}</div></div>
-  `:''}`;
+  return`<div class="cd"><h3 class="ct">High Rise</h3>
+  <div style="background:rgba(176,122,16,.06);border:1px solid rgba(176,122,16,.2);border-radius:6px;padding:16px;color:var(--warn);font-size:13px;line-height:1.7">
+    <strong>High-rise loss estimates should be performed manually at this time.</strong><br><br>
+    The high-rise module (Figure 2, Table 2, FMDS 1-3 exterior fire spread) has been temporarily removed from the automated tool. High-rise buildings are not common enough to warrant the additional complexity and debugging effort at this stage of development.<br><br>
+    For high-rise buildings, engineers should manually apply:<br>
+    <div style="margin:8px 0 0 12px">
+    &bull; FP 5020 Figure 2 / Table 2 for PML fire floor, smoke, and water damage<br>
+    &bull; FMDS 1-3 for exterior fire spread analysis (H/h ratio)<br>
+    &bull; Floor-by-floor MFL calculation with Table 4 condemnation threshold<br>
+    &bull; Multi-story smoke and water propagation effects
+    </div>
+  </div></div>
+  <div class="cd"><h3 class="ct">Reference</h3>
+  <div style="font-size:12px;line-height:1.7;color:var(--muted)">The floor count field on the Site Info tab (Buildings section) is still available for multi-story non-high-rise buildings and will continue to generate adjacent-floor damage estimates in the PML narrative.</div></div>`;
 }
 
 function rRev(){
@@ -825,6 +789,7 @@ function rRev(){
   <table style="width:100%;border-collapse:collapse;font-size:12px">
   <thead><tr style="border-bottom:2px solid var(--border)"><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Rev</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Date</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Author</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Status</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Description</th></tr></thead>
   <tbody>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.11</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Added APL damage percentage sliders on the APL tab, allowing engineers to adjust Table 1A damage percentages (building, equipment, inventory) for each zone (fire, water, smoke) within configurable bounds. Each percentage &lt; 100% gets a slider with range endpoints derived from ±40% of the Table 1A default value. Manual numeric input provided alongside each slider. "Unlock Range" checkbox removes the bounds constraint, allowing the full 0–100% range. Overrides are scenario-specific and persist across tab switches. Narratives annotate adjusted values with "(adjusted)". Reset button restores Table 1A defaults. Removed high-rise module (Figure 2, Table 2, FMDS 1-3 exterior fire spread, floor-by-floor MFL) from automated calculations — high-rise tab now displays a note directing engineers to perform high-rise loss estimates manually. Floor count field retained on Site Info for multi-story non-high-rise buildings.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.10</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Unified PML logic: scenario-based 100% damage zones now apply for ALL APL=PML triggers (&lt;80% of design, FL/CL present, Table 1B deficiencies) — not only the deficient+inadequate alarms case. Previously these cases fell through to the broken Table 4 proportional fallback, producing PML values lower than APL. Now any apl.eq=true condition routes to Step 2: hypothetical APL scenario zone ratios scaled to design area × 1.5 with 100% damage throughout, capped at MFL. For &lt;80% design triggers, the boundary scenario (G for storage, E/F for non-storage, fire area = design area) is used so the PML scale factor stays near 1.5x — preventing the artificial spike that occurred when the fully-adequate scenario's small fixed fire area (e.g., 500 sqft for ESFR/Scenario H) created a 6x scale factor at 79% vs 1.5x at 80%. Additionally, inadequate alarms/FD/PEO (alarmsOk=false) now triggers Step 1 PML=MFL (delayed response); PML tab FD Response selector auto-locks to "Delayed" when alarmsOk=false. FL/CL toggle label updated to include "Flammable/Combustible Liquids" explicitly. Test suite updated and expanded to 242 passing tests.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.9</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Corrected PML logic for deficient sprinkler system with inadequate alarms/FD/PEO. Previously this condition forced PML = MFL (entire building at Table 4 percentages), which overcounted the loss. The PML now uses the hypothetical APL scenario that would apply if the deficiency did not exist, scales all three damage zones (fire, water, smoke) proportionally to the standard PML fire area (design area x 1.5), and applies 100% damage throughout — producing a scenario-grounded PML that is noticeably higher than APL but appropriately lower than MFL for most configurations. PML is capped at MFL if zone stacking causes it to exceed that threshold. Added hypAPLSc() helper to determine the hypothetical scenario. Narrative updated to show full zone-by-zone breakdown with scale factor. New tests added covering scenario selection, zone structure, damage percentages, ordering, and magnitude.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.8</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Removed hardcoded USD ($) currency symbol from all values, narratives, and UI labels. Added configurable currency dropdown on Site Info tab with 15 major world currencies (USD, EUR, GBP, JPY, CNY, CHF, CAD, AUD, HKD, SGD, SEK, NOK, DKK, KRW, BRL); default is no symbol per LPR convention. Added imperial/metric unit system toggle on Site Info tab. Area labels switch between sqft and m², distance labels switch between ft and m. All percentage-based calculations are unit-agnostic; MFL Table 3a separation thresholds are auto-converted to metric when selected. Default design area adjusts to 140 m² (metric) / 1,500 sqft (imperial). Narratives, UI badges, per-unit-area breakdowns, and input placeholders all reflect the selected unit and currency. No impact on calculation accuracy — existing saved data loads without issue.</td></tr>
