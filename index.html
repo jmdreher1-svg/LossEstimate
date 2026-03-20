@@ -331,7 +331,7 @@ function calcPML(){
       ["fire","water","smoke"].forEach(t=>{const zd=sys[t];const aplZA=rA(zd.a);const pmlZA=Math.min(Math.round(aplZA*sf),v.a);const bD=(v.tb/v.a)*pmlZA,eD=(v.te/v.a)*pmlZA,iD=(v.ti/v.a)*pmlZA;pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:aplZA,pmlA:pmlZA,bPct:100,ePct:100,iPct:100,bD:rLE(bD),eD:rLE(eD),iD:rLE(iD)});});
       pB=Math.min(pB,v.tb);pE=Math.min(pE,v.te);pI=Math.min(pI,v.ti);
       let pT=rLE(pB+pE+pI);const mflCap=pT>mfl.pT;if(mflCap)pT=mfl.pT;
-      return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT,eq:true,rsn:"Deficient sprinkler system with inadequate alarms/FD/PEO: fire grows uncontrolled to PML fire area; 100% damage applied to all scenario zones",pmlFA,zones,hypSc:hSc,bP:100,eP:100,iP:100,mflCap};}
+      return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT,eq:true,rsn:"Deficient sprinkler system with inadequate alarms/FD/PEO: fire grows uncontrolled to PML fire area; 100% damage applied to all scenario zones",pmlFA,hypDesignA:designA,pmlAreaOverride:pf(S.pmlArea)>0,zones,hypSc:hSc,bP:100,eP:100,iP:100,mflCap};}
     return{...mfl,eq:true,rsn:"Deficient sprinkler system with inadequate alarms/FD/PEO implies delayed response, so PML = MFL",pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   const o=MFL_T[primaryOcc()];if(!o||v.a===0)return{pB:0,pE:0,pI:0,pT:0,biM:0,eq:false,zones:[]};
   const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||defDA();
@@ -449,7 +449,19 @@ function genN(){
       p+=`  Building:      ${fmtF(v.tb)} total, ${cs()}${v.bpsf.toFixed(2)}/${aU()}\n`;
       p+=`  Equipment/M&E: ${fmtF(v.te)} total, ${cs()}${v.epsf.toFixed(2)}/${aU()}\n`;
       p+=`  Inventory/WIP: ${fmtF(v.ti)} total, ${cs()}${v.ipsf.toFixed(2)}/${aU()}\n\n`;
-      p+=`Damage zones derived from hypothetical APL Scenario ${pml.hypSc} (what would apply if sprinklers were adequate), scaled to PML fire area of ${fN(Math.round(pml.pmlFA))} ${aU()} (APL fire zone ${fN(aplFA)} ${aU()} x ${sf.toFixed(2)}). With no effective alarm or FD notification, fire burns freely to PML area and 100% damage is assumed throughout all affected zones:\n\n`;
+      const dA=pml.hypDesignA||pf(S.designArea)||defDA();
+      if(pml.pmlAreaOverride){
+        p+=`PML Fire Area (user-specified): ${fN(Math.round(pml.pmlFA))} ${aU()}\n\n`;
+      } else {
+        p+=`PML Fire Area Derivation:\n`;
+        p+=`  With deficient sprinklers and no alarm notification, the fire is assumed to burn freely across the entire sprinkler design area (full hydraulic zone) plus 50% into the adjacent zone before fire department arrival:\n`;
+        p+=`    Full sprinkler zone (design area):    ${fN(dA)} ${aU()}\n`;
+        p+=`    Adjacent zone spread (+50%):         +${fN(Math.round(dA*0.5))} ${aU()}\n`;
+        p+=`    PML fire area (design area x 1.5):    ${fN(Math.round(pml.pmlFA))} ${aU()}\n\n`;
+        p+=`  Note: the APL fire zone under Scenario ${pml.hypSc} is only ${fN(aplFA)} ${aU()} — the area where active sprinkler suppression would have controlled the fire. The PML fire area (${fN(Math.round(pml.pmlFA))} ${aU()}) is based on the full sprinkler zone boundary, not 1.5x the APL fire zone.\n\n`;
+      }
+      p+=`Scale Factor: PML fire area ${fN(Math.round(pml.pmlFA))} ${aU()} ÷ APL Scenario ${pml.hypSc} fire zone ${fN(aplFA)} ${aU()} = ${sf.toFixed(2)}x\n\n`;
+      p+=`With no effective alarm or FD notification, fire burns freely to the PML fire area and 100% damage is assumed throughout all affected zones (fire, water, and smoke proportionally scaled from Scenario ${pml.hypSc}):\n\n`;
       pml.zones.forEach(z=>{const tU=z.type.charAt(0).toUpperCase()+z.type.slice(1);p+=`${tU} Zone: ${fN(z.aplA)} ${aU()} (Scenario ${pml.hypSc}) x ${sf.toFixed(2)} = ${fN(z.pmlA)} ${aU()}\n`;p+=`  Bldg:  ${cs()}${v.bpsf.toFixed(2)}/${aU()} x 100% x ${fN(z.pmlA)} ${aU()} = ${fmtF(z.bD)}\n`;p+=`  Equip: ${cs()}${v.epsf.toFixed(2)}/${aU()} x 100% x ${fN(z.pmlA)} ${aU()} = ${fmtF(z.eD)}\n`;p+=`  Inv:   ${cs()}${v.ipsf.toFixed(2)}/${aU()} x 100% x ${fN(z.pmlA)} ${aU()} = ${fmtF(z.iD)}\n\n`;});
       p+=`  Building:      ${fmtF(pml.pB)}\n`;
       p+=`  Equipment/M&E: ${fmtF(pml.pE)}\n`;
