@@ -89,7 +89,7 @@ function bldgValue(i){
   const b=S.buildings[i],ov=pf(b.value);
   if(ov>0)return ov;
   if(S.valueDist==="custom"){
-    const hasCust=pf(b.bldgPct)>0||pf(b.equipPct)>0||pf(b.invPct)>0;
+    const hasCust=(b.bldgPct!==''&&b.bldgPct!==undefined)||(b.equipPct!==''&&b.equipPct!==undefined)||(b.invPct!==''&&b.invPct!==undefined);
     if(hasCust)return bldgCatValue(i,'b')+bldgCatValue(i,'e')+bldgCatValue(i,'i');
   }
   const ts=totalSqft(),ba=pf(b.area),tv=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);
@@ -101,7 +101,7 @@ function bldgCatValue(i,cat){
   const ov=pf(b.value);
   if(ov>0){const sitePD=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);return sitePD>0?siteVal*(ov/sitePD):0;}
   const pctKey=cat==='b'?'bldgPct':cat==='e'?'equipPct':'invPct';
-  if(S.valueDist==="custom"&&pf(b[pctKey])>0)return siteVal*(pf(b[pctKey])/100);
+  if(S.valueDist==="custom"&&b[pctKey]!==''&&b[pctKey]!==undefined)return siteVal*(pf(b[pctKey])/100);
   return ts>0?siteVal*(ba/ts):0;
 }
 
@@ -1828,6 +1828,19 @@ describe('bldgValue() / bldgCatValue() - custom per-category distribution', () =
     expect(bldgCatValue(0,'b')).toBeCloseTo(3500000, -3);
     expect(bldgCatValue(0,'e')).toBeCloseTo(2400000, -3);
     expect(bldgCatValue(0,'i')).toBeCloseTo(1800000, -3);
+  });
+
+  test('zero percent is treated as intentional 0%, not fallback to area', () => {
+    S.valueDist = 'custom';
+    S.buildings = [
+      {name:'Warehouse', area:'80000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', bldgPct:'70', equipPct:'20', invPct:'90'},
+      {name:'Office', area:'20000', construction:'hnc', occupancy:'Office', value:'', separation:'', floors:'', bldgPct:'30', equipPct:'5', invPct:'0'},
+    ];
+    S.totalBldg = '5000000'; S.totalEquip = '3000000'; S.totalInv = '2000000';
+    // Office inv = 0% of 2M = $0 (not area fallback)
+    expect(bldgCatValue(1,'i')).toBe(0);
+    // Office bldg = 30% of 5M = 1.5M
+    expect(bldgCatValue(1,'b')).toBeCloseTo(1500000, -3);
   });
 });
 

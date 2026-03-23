@@ -219,7 +219,7 @@ function bldgValue(i){
   const b=S.buildings[i],ov=pf(b.value);
   if(ov>0)return ov;
   if(S.valueDist==="custom"){
-    const hasCust=pf(b.bldgPct)>0||pf(b.equipPct)>0||pf(b.invPct)>0;
+    const hasCust=(b.bldgPct!==''&&b.bldgPct!==undefined)||(b.equipPct!==''&&b.equipPct!==undefined)||(b.invPct!==''&&b.invPct!==undefined);
     if(hasCust)return bldgCatValue(i,'b')+bldgCatValue(i,'e')+bldgCatValue(i,'i');
   }
   const ts=totalSqft(),ba=pf(b.area),tv=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);
@@ -233,7 +233,7 @@ function bldgCatValue(i,cat){
   const ov=pf(b.value);
   if(ov>0){const sitePD=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);return sitePD>0?siteVal*(ov/sitePD):0;}
   const pctKey=cat==='b'?'bldgPct':cat==='e'?'equipPct':'invPct';
-  if(S.valueDist==="custom"&&pf(b[pctKey])>0)return siteVal*(pf(b[pctKey])/100);
+  if(S.valueDist==="custom"&&b[pctKey]!==''&&b[pctKey]!==undefined)return siteVal*(pf(b[pctKey])/100);
   return ts>0?siteVal*(ba/ts):0;
 }
 
