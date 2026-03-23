@@ -151,7 +151,7 @@ const S={
   tab:0,siteName:"",accountNo:"",surveyDate:"",
   currency:"",units:"imperial",
   // Buildings array: each has name, area, construction, occupancy, value (override), separation (for MFL)
-  buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:""}],
+  buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",valuePct:""}],
   primaryIdx:0, // which building is the primary fire area
   // Site-wide
   hazardClass:"ordinary",isStorage:true,isSensitive:false,
@@ -160,6 +160,7 @@ const S={
   defHP:"none",defESFR:"none",defOT:"none",defFC:"none",defFE:false,defV:"none",defOE:"none",defOC:"none",
   // Values
   totalBldg:"",totalEquip:"",totalInv:"",biYearly:"",biMode:"dollar",annualProd:"",biPct:"",
+  valueDist:"area", // "area" = proportional by sqft (default), "custom" = user-specified % per building
   // PML
   pmlSystem:"sprinkler_riser",fdTime:"prompt",fdType:"fullypaid",pmlArea:"",hasCombConst:false,
   // MFL
@@ -185,7 +186,7 @@ function fN(v){return v.toLocaleString()}
 function toFt(v){return S.units==="metric"?v/0.3048:v}
 function fromFt(v){return S.units==="metric"?Math.round(v*0.3048):v}
 function defDA(){return S.units==="metric"?140:1500} // default design area (1500 sqft ≈ 140 m²)
-function rLE(v){if(v<100000)return Math.round(v/1000)*1000;return Math.round(v/100000)*100000}
+function rLE(v){return Math.round(v/10000)*10000}
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function pct(v){return(v*100).toFixed(0)+"%"}
 function su(k,v){S[k]=v}
@@ -207,7 +208,7 @@ function totalSqft(){return S.buildings.reduce((s,b)=>s+pf(b.area),0)}
 function primaryArea(){return pf(pb().area)}
 function primaryConst(){return pb().construction}
 function primaryOcc(){return pb().occupancy||"Warehousing"}
-function addBldg(){S.buildings.push({name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:""});render()}
+function addBldg(){S.buildings.push({name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",valuePct:""});render()}
 function rmBldg(i){if(S.buildings.length<=1)return;S.buildings.splice(i,1);if(S.primaryIdx>=S.buildings.length)S.primaryIdx=0;render()}
 function setBldg(i,k,v){S.buildings[i][k]=v}
 function setBldgR(i,k,el){S.buildings[i][k]=el.value;render()}
@@ -217,14 +218,17 @@ function setPrimary(i){S.primaryIdx=i;render()}
 function bldgValue(i){
   const b=S.buildings[i],ov=pf(b.value);
   if(ov>0)return ov;
-  const ts=totalSqft(),ba=pf(b.area),tv=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);
+  const tv=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);
+  if(S.valueDist==="custom"&&pf(b.valuePct)>0)return tv*(pf(b.valuePct)/100);
+  const ts=totalSqft(),ba=pf(b.area);
   return ts>0?tv*(ba/ts):0;
 }
 
 function gv(){
   const a=primaryArea();
   const siteTb=pf(S.totalBldg),siteTe=pf(S.totalEquip),siteTi=pf(S.totalInv),sitePD=siteTb+siteTe+siteTi;
-  const prop=sitePD>0?bldgValue(S.primaryIdx)/sitePD:1;
+  const bv=bldgValue(S.primaryIdx);
+  const prop=sitePD>0?bv/sitePD:1;
   const tb=siteTb*prop,te=siteTe*prop,ti=siteTi*prop;
   let by=pf(S.biYearly);if(S.biMode==="percent"&&pf(S.annualProd)>0&&pf(S.biPct)>0)by=pf(S.annualProd)*(pf(S.biPct)/100);
   return{a,tb,te,ti,by,bpsf:a>0?tb/a:0,epsf:a>0?te/a:0,ipsf:a>0?ti/a:0,pd:tb+te+ti};
@@ -272,8 +276,8 @@ function calcAPL(){
   let pB=0,pE=0,pI=0,bi="";
   if(sc&&APL_SC[sc]&&v.a>0){const s=APL_SC[sc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;bi=s.bi;
     const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(pf(S.designArea)||defDA(),v.a);if(x==="2x")return Math.min((pf(S.designArea)||defDA())*2,v.a);if(x==="5x")return Math.min((pf(S.designArea)||defDA())*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
-    ["fire","water","smoke"].forEach(t=>{const d=sys[t],ar=rA(d.a);pB+=(v.tb/v.a)*aplDmg(sc,t,'b',d.b)*ar;pE+=(v.te/v.a)*aplDmg(sc,t,'e',d.e)*ar;pI+=(v.ti/v.a)*aplDmg(sc,t,'i',d.i)*ar;});}
-  return{sc,eq,R,pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT:rLE(pB+pE+pI),bi};
+    ["fire","water","smoke"].forEach(t=>{const d=sys[t],ar=rA(d.a);pB+=rLE((v.tb/v.a)*aplDmg(sc,t,'b',d.b)*ar);pE+=rLE((v.te/v.a)*aplDmg(sc,t,'e',d.e)*ar);pI+=rLE((v.ti/v.a)*aplDmg(sc,t,'i',d.i)*ar);});}
+  return{sc,eq,R,pB,pE,pI,pT:pB+pE+pI,bi};
 }
 
 // MFL - start with total site values, subtract adequately separated buildings, apply Table 4 percentages
@@ -354,10 +358,10 @@ function calcPML(){
       let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
       const sf=aplFireA>0?pmlFA/aplFireA:1;
       let pB=0,pE=0,pI=0,zones=[];
-      ["fire","water","smoke"].forEach(t=>{const zd=sys[t];const aplZA=rA(zd.a);const pmlZA=Math.min(Math.round(aplZA*sf),v.a);const bD=(v.tb/v.a)*pmlZA,eD=(v.te/v.a)*pmlZA,iD=(v.ti/v.a)*pmlZA;pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:aplZA,pmlA:pmlZA,bPct:100,ePct:100,iPct:100,bD:rLE(bD),eD:rLE(eD),iD:rLE(iD)});});
+      ["fire","water","smoke"].forEach(t=>{const zd=sys[t];const aplZA=rA(zd.a);const pmlZA=Math.min(Math.round(aplZA*sf),v.a);const bD=rLE((v.tb/v.a)*pmlZA),eD=rLE((v.te/v.a)*pmlZA),iD=rLE((v.ti/v.a)*pmlZA);pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:aplZA,pmlA:pmlZA,bPct:100,ePct:100,iPct:100,bD,eD,iD});});
       pB=Math.min(pB,v.tb);pE=Math.min(pE,v.te);pI=Math.min(pI,v.ti);
-      let pT=rLE(pB+pE+pI);const mflCap=pT>mfl.pT;if(mflCap)pT=mfl.pT;
-      return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT,eq:true,rsn:`${aplEqRsn}: PML fire area modeled at 100% damage using hypothetical Scenario ${hSc} zone ratios scaled to design area × 1.5`,pmlFA,hypDesignA:designA,pmlAreaOverride:pf(S.pmlArea)>0,zones,hypSc:hSc,aplEqRsn,bP:100,eP:100,iP:100,mflCap};}
+      let pT=pB+pE+pI;const mflCap=pT>mfl.pT;if(mflCap)pT=mfl.pT;
+      return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB,pE,pI,pT,eq:true,rsn:`${aplEqRsn}: PML fire area modeled at 100% damage using hypothetical Scenario ${hSc} zone ratios scaled to design area × 1.5`,pmlFA,hypDesignA:designA,pmlAreaOverride:pf(S.pmlArea)>0,zones,hypSc:hSc,aplEqRsn,bP:100,eP:100,iP:100,mflCap};}
     return{...mfl,eq:true,rsn:`${aplEqRsn}: no adequate protection scenario available, so PML = MFL`,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   const o=MFL_T[primaryOcc()];if(!o||v.a===0)return{pB:0,pE:0,pI:0,pT:0,biM:0,eq:false,zones:[]};
   const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||defDA();
@@ -367,11 +371,11 @@ function calcPML(){
     const aplFA=(x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0})(sys.fire.a);
     const sf=aplFA>0?pmlFA/aplFA:1;
     ["fire","water","smoke"].forEach(t=>{const zd=sys[t];const azA=(x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0})(zd.a);
-      const pzA=Math.min(Math.round(azA*sf),v.a);const eb=aplDmg(apl.sc,t,'b',zd.b),ee=aplDmg(apl.sc,t,'e',zd.e),ei=aplDmg(apl.sc,t,'i',zd.i);const bD=(v.tb/v.a)*eb*pzA,eD=(v.te/v.a)*ee*pzA,iD=(v.ti/v.a)*ei*pzA;
-      pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:azA,pmlA:pzA,bPct:eb,ePct:ee,iPct:ei,bD:rLE(bD),eD:rLE(eD),iD:rLE(iD)});});}
-  else{const r=v.a>0?pmlFA/v.a:1;pB=v.tb*(d.b/100)*r;pE=v.te*(d.e/100)*r;pI=v.ti*(d.i/100)*r;}
-  let pT=rLE(pB+pE+pI),aplFloor=false;if(pT<apl.pT){aplFloor=true;pT=apl.pT;}
-  return{biM:d.bi,pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT,bV:rLE(v.by/12*d.bi),eq:false,rsn:"",aplFloor,pmlFA,zones,bP:d.b,eP:d.e,iP:d.i};
+      const pzA=Math.min(Math.round(azA*sf),v.a);const eb=aplDmg(apl.sc,t,'b',zd.b),ee=aplDmg(apl.sc,t,'e',zd.e),ei=aplDmg(apl.sc,t,'i',zd.i);const bD=rLE((v.tb/v.a)*eb*pzA),eD=rLE((v.te/v.a)*ee*pzA),iD=rLE((v.ti/v.a)*ei*pzA);
+      pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:azA,pmlA:pzA,bPct:eb,ePct:ee,iPct:ei,bD,eD,iD});});}
+  else{const r=v.a>0?pmlFA/v.a:1;pB=rLE(v.tb*(d.b/100)*r);pE=rLE(v.te*(d.e/100)*r);pI=rLE(v.ti*(d.i/100)*r);}
+  let pT=pB+pE+pI,aplFloor=false;if(pT<apl.pT){aplFloor=true;pT=apl.pT;}
+  return{biM:d.bi,pB,pE,pI,pT,bV:rLE(v.by/12*d.bi),eq:false,rsn:"",aplFloor,pmlFA,zones,bP:d.b,eP:d.e,iP:d.i};
 }
 
 // Narrative
@@ -534,7 +538,7 @@ function genN(){
     const perFloorContents=rLE((v.te+v.ti)/primaryFloors);
     const smokeAbove=rLE(perFloorContents*0.20);
     const waterBelow=rLE(perFloorContents*0.15);
-    const pmlTotal=rLE(pml.pT+smokeAbove+waterBelow);
+    const pmlTotal=pml.pT+smokeAbove+waterBelow;
     p+=`\n\nMulti-Story Building — Adjacent Floor Damage (FP 5020 Page 7):\nThis ${primaryFloors}-story building requires consideration of smoke and water damage on floors adjacent to the fire floor.\n`;
     p+=`  Contents value per floor: (${fmtF(v.te)} equip + ${fmtF(v.ti)} inv) ÷ ${primaryFloors} floors = ${fmtF(perFloorContents)}/floor\n`;
     p+=`  Base PML (fire floor):    ${fmtF(pml.pT)}\n`;
@@ -647,15 +651,35 @@ function r0(){
 }
 
 function r1(){
-  const v=gv(),ts=totalSqft();
-  let distHtml=S.buildings.map((b,i)=>{const ba=pf(b.area),pct=ts>0?(ba/ts*100).toFixed(1):0;return`<div style="font-size:12px;color:var(--text);padding:4px 0"><strong>${b.name||"Building "+(i+1)}</strong>: ${fN(ba)} ${aU()} (${pct}%) = ${fmtF(bldgValue(i))}${pf(b.value)>0?' <span style="color:var(--accent)">(override)</span>':''}</div>`}).join('');
+  const v=gv(),ts=totalSqft(),sitePD=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);
+  const isCustom=S.valueDist==="custom";
+  // Calculate sum of custom percentages for validation
+  const customPctSum=S.buildings.reduce((s,b)=>s+pf(b.valuePct),0);
+  let distHtml=S.buildings.map((b,i)=>{
+    const ba=pf(b.area),areaPct=ts>0?(ba/ts*100).toFixed(1):0;
+    const bVal=bldgValue(i),bPsf=ba>0?bVal/ba:0;
+    if(isCustom){
+      return`<div style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr;gap:8px;align-items:center;padding:4px 0;font-size:12px;color:var(--text)">
+        <div><strong>${b.name||"Building "+(i+1)}</strong> <span style="color:var(--dim)">(${fN(ba)} ${aU()}, ${areaPct}% area)</span></div>
+        <div class="fd" style="margin:0"><input type="number" value="${esc(b.valuePct)}" placeholder="${areaPct}" step="0.1" min="0" max="100" style="text-align:center" oninput="setBldg(${i},'valuePct',this.value)" onblur="setBldgR(${i},'valuePct',this)"></div>
+        <div style="color:var(--accent);font-weight:600">${cs()}${bPsf.toFixed(2)}/${aU()}</div>
+        <div style="color:var(--muted)">${fmtF(bVal)}</div>
+      </div>`;
+    }
+    return`<div style="font-size:12px;color:var(--text);padding:4px 0"><strong>${b.name||"Building "+(i+1)}</strong>: ${fN(ba)} ${aU()} (${areaPct}%) = ${fmtF(bVal)} (${cs()}${bPsf.toFixed(2)}/${aU()})${pf(b.value)>0?' <span style="color:var(--accent)">(override)</span>':''}</div>`;
+  }).join('');
+  const pctStatus=isCustom?`<div style="margin-top:6px;font-size:11px;font-weight:600;color:${Math.abs(customPctSum-100)<0.1?'var(--success)':'var(--danger)'}">${customPctSum.toFixed(1)}% of 100%${Math.abs(customPctSum-100)>=0.1?' — percentages should sum to 100%':' ✓'}</div>`:'';
   return`<div class="cd"><h3 class="ct">Total Site Property Values</h3>
-  <p style="color:var(--muted);font-size:11px;margin-bottom:10px">Enter the total reported values. They distribute to buildings proportionally by area unless you override a building's value on the MFL tab.</p>
+  <p style="color:var(--muted);font-size:11px;margin-bottom:10px">Enter the total reported values. They distribute to buildings proportionally by area unless you customize the distribution below.</p>
   <div class="g3">${fd("Total Building",inp("totalBldg","10,000,000","number"))}${fd("Total Equipment/M&E",inp("totalEquip","25,000,000","number"))}${fd("Total Inventory/WIP",inp("totalInv","2,000,000","number"))}</div></div>
+  ${S.buildings.length>1?`<div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">Value Distribution by Building</h3></div>
+  <div class="tgr" style="margin-bottom:10px"><div class="tg" onclick="set('valueDist',S.valueDist==='custom'?'area':'custom')"><div class="tgt${S.valueDist==='custom'?' on':''}"><div class="tgk"></div></div><span>Custom Value Weighting</span></div></div>
+  ${isCustom?'<div class="note">Set each building\'s share of total site value (%). The weighted $/'+aU()+' for each building will derive from its % share and area. Leave blank to default to area proportion.</div>':''}
+  ${isCustom?'<div style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr;gap:8px;padding:2px 0;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Building</div><div>% of Value</div><div>$/'+aU()+'</div><div>Value</div></div>':''}
+  ${distHtml}${pctStatus}</div>`:''}
   <div class="cd"><h3 class="ct">Primary Building (per ${aU()})</h3>
-  <div style="margin-bottom:8px;font-size:11px;color:var(--muted)">Based on primary building area of ${fN(v.a)} ${aU()}</div>
-  <div class="g3">${vc("Building",cs()+v.bpsf.toFixed(2),fmtF(v.tb))}${vc("Equipment",cs()+v.epsf.toFixed(2),fmtF(v.te))}${vc("Inv/WIP",cs()+v.ipsf.toFixed(2),fmtF(v.ti))}</div></div>
-  ${S.buildings.length>1?`<div class="cd"><h3 class="ct">Value Distribution by Building</h3>${distHtml}</div>`:''}`;
+  <div style="margin-bottom:8px;font-size:11px;color:var(--muted)">Based on primary building area of ${fN(v.a)} ${aU()}${isCustom&&pf(S.buildings[S.primaryIdx].valuePct)>0?' ('+pf(S.buildings[S.primaryIdx].valuePct)+'% of site value)':''}</div>
+  <div class="g3">${vc("Building",cs()+v.bpsf.toFixed(2),fmtF(v.tb))}${vc("Equipment",cs()+v.epsf.toFixed(2),fmtF(v.te))}${vc("Inv/WIP",cs()+v.ipsf.toFixed(2),fmtF(v.ti))}</div></div>`;
 }
 
 function rBI(){
