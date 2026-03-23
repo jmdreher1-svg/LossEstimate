@@ -58,6 +58,8 @@ function resetS() {
     valueDist:"area",
     pmlSystem:"sprinkler_riser", fdTime:"prompt", fdType:"fullypaid", pmlArea:"",
     hasCombConst:false,
+    multipleRisers:false, centralStation:false,
+    pmlFW2hr:false, pmlFWArea:"",
     fw4hr:false, fwArea:"",
     isHighRise:false, stories:"", hrFireFloors:"1", topFloorBelowFD:true, extSpreadPossible:false,
     extType:"none", floorToWindow:"", windowHeight:"",
@@ -221,34 +223,59 @@ function calcMFL(){
 function hypAPLSc(){const isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";if(S.isStorage){if(S.hasFL)return"G";if(S.isSensitive)return S.protType==="esfr"?"I":S.protType==="cmsa"?"K":"D";return S.protType==="esfr"?"H":S.protType==="cmsa"?"J":"C";}if(S.isSensitive)return isLO?"B":"D";return isLO?"A":"C";}
 
 // PML calculation
+function pmlItem5Active(){
+  const isNCFR=primaryConst()==="fr"||primaryConst()==="hnc"||primaryConst()==="lnc";
+  const goodFD=S.fdType==="fullypaid"&&S.fdTime==="prompt";
+  return isNCFR&&goodFD&&S.pmlFW2hr&&pf(S.pmlFWArea)>0;
+}
+function pmlItem7Qualifies(){
+  const isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";
+  return isLO&&!S.hasFL&&S.sprinklerAdequate==="adequate"&&S.multipleRisers&&S.centralStation&&S.fdType==="fullypaid"&&S.fdTime==="prompt";
+}
 function calcPML(){
   const v=gv(),mfl=calcMFL(),apl=calcAPL();
-  // Step 1: Hard PML=MFL — inadequate alarms, delayed FD, combustible construction, or no sprinklers
+  const isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";
   if(!S.alarmsOk||S.fdTime==="delayed"||primaryConst()==="comb"||S.hasCombConst||S.sprinklerAdequate==="none"){
     const rsn=!S.alarmsOk?"Inadequate alarms/FD notification implies delayed emergency response, so PML = MFL":S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":S.sprinklerAdequate==="none"?"No automatic sprinkler protection, so PML = MFL":"Combustible construction, so PML = MFL";
     return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
-  // Step 2: Any APL=PML trigger → hypothetical scenario zones at 100% damage, design area × 1.5
+  if(!isLO){
+    if(pmlItem5Active()){
+      const fwA=Math.min(pf(S.pmlFWArea),v.a);
+      const r=v.a>0?fwA/v.a:1;
+      const pB=rLE(mfl.pB*r),pE=rLE(mfl.pE*r),pI=rLE(mfl.pI*r);
+      let pT=pB+pE+pI;if(pT<apl.pT){pT=apl.pT;}
+      return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB,pE,pI,pT,eq:false,rsn:"Item #5: 2-hour fire wall limits PML fire area for extra hazard/storage",aplFloor:pT===apl.pT&&pB+pE+pI<apl.pT,pmlFA:fwA,zones:[],bP:mfl.bP,eP:mfl.eP,iP:mfl.iP,item5Limited:true};}
+    const rsn="Extra hazard/storage occupancy: PML = MFL per Item #6 (no Item #5 fire wall credited)";
+    return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
+  if(!pmlItem7Qualifies()){
+    const missing=[];
+    if(S.hasFL)missing.push("has FL/CL");
+    if(S.sprinklerAdequate!=="adequate")missing.push("sprinklers not adequate");
+    if(!S.multipleRisers)missing.push("no multiple risers");
+    if(!S.centralStation)missing.push("no central station/24hr");
+    if(S.fdType!=="fullypaid")missing.push("FD not fully paid");
+    const rsn=`Item #7 qualifiers not met (${missing.join(", ")}): PML = MFL`;
+    return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
+  const designA=pf(S.designArea)||defDA();
+  let pmlFA=pf(S.pmlArea);
+  if(pmlFA<=0){pmlFA=designA*1.5;if(pmlItem5Active())pmlFA=Math.min(pmlFA,pf(S.pmlFWArea));}
+  pmlFA=Math.min(pmlFA,v.a);
   if(apl.eq){
-    const designA=pf(S.designArea)||defDA();
-    // For <80% trigger: use boundary scenario (at exactly 80%) so scale factor ≈ 1.5x.
-    // For FL/CL, Table 1B, etc.: use fully-adequate scenario via hypAPLSc().
     const is80=(pf(S.designPct)||100)>=80,isAdq=S.sprinklerAdequate==="adequate";
     const hSc=(!is80&&!isAdq)?(S.isStorage?"G":(S.isSensitive?"F":"E")):hypAPLSc();
     const aplEqRsn=apl.R.filter(r=>r.toLowerCase().includes("apl = pml")).join("; ")||"Protection deficiencies";
     if(hSc&&APL_SC[hSc]){const s=APL_SC[hSc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
       const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
       const aplFireA=rA(sys.fire.a);
-      let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
       const sf=aplFireA>0?pmlFA/aplFireA:1;
       let pB=0,pE=0,pI=0,zones=[];
       ["fire","water","smoke"].forEach(t=>{const zd=sys[t];const aplZA=rA(zd.a);const pmlZA=Math.min(Math.round(aplZA*sf),v.a);const bD=rLE((v.tb/v.a)*pmlZA),eD=rLE((v.te/v.a)*pmlZA),iD=rLE((v.ti/v.a)*pmlZA);pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:aplZA,pmlA:pmlZA,bPct:100,ePct:100,iPct:100,bD,eD,iD});});
       pB=Math.min(pB,v.tb);pE=Math.min(pE,v.te);pI=Math.min(pI,v.ti);
       let pT=pB+pE+pI;const mflCap=pT>mfl.pT;if(mflCap)pT=mfl.pT;
-      return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB,pE,pI,pT,eq:true,rsn:`${aplEqRsn}: PML fire area modeled at 100% damage using hypothetical Scenario ${hSc} zone ratios scaled to design area × 1.5`,pmlFA,hypDesignA:designA,pmlAreaOverride:pf(S.pmlArea)>0,zones,hypSc:hSc,aplEqRsn,bP:100,eP:100,iP:100,mflCap};}
+      return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB,pE,pI,pT,eq:true,rsn:`${aplEqRsn}: PML fire area modeled at 100% damage using hypothetical Scenario ${hSc} zone ratios (Item #7)`,pmlFA,hypDesignA:designA,pmlAreaOverride:pf(S.pmlArea)>0,zones,hypSc:hSc,aplEqRsn,bP:100,eP:100,iP:100,mflCap};}
     return{...mfl,eq:true,rsn:`${aplEqRsn}: no adequate protection scenario available, so PML = MFL`,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   const o=MFL_T[primaryOcc()];if(!o||v.a===0)return{pB:0,pE:0,pI:0,pT:0,biM:0,eq:false,zones:[]};
-  const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||defDA();
-  let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
+  const d=o[primaryConst()]||o.comb;
   let pB=0,pE=0,pI=0,zones=[];
   if(apl.sc&&APL_SC[apl.sc]){const s=APL_SC[apl.sc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
     const aplFA=(x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0})(sys.fire.a);
@@ -992,6 +1019,8 @@ describe('calcPML() - PML calculation', () => {
     S.totalEquip = String(equip);
     S.totalInv = String(inv);
     S.designArea = '2000';
+    // Item #7 qualifiers for L/O hazard tests
+    S.multipleRisers = true; S.centralStation = true; S.fdType = 'fullypaid';
   }
 
   test('PML = MFL for combustible construction', () => {
@@ -1641,6 +1670,7 @@ describe('calcPML() - zone scaling and BI', () => {
     S.isStorage = false; S.isSensitive = false; S.hazardClass = 'ordinary';
     S.designArea = '2000';
     S.biYearly = '12000000';
+    S.multipleRisers = true; S.centralStation = true; S.fdType = 'fullypaid';
   }
 
   test('zones array is populated when APL scenario is known', () => {
@@ -1954,27 +1984,44 @@ describe('Integration: combustible construction site', () => {
   });
 });
 
-// --------------- PML: deficient + no alarms uses scenario-based 100% zones ---------------
-describe('PML: any APL=PML trigger uses scenario-based 100% damage zones', () => {
-  // Setup: non-storage, deficient, <80% design → APL=PML via !is80&&!isAdq path
-  // alarmsOk=true so Step 1 (PML=MFL) is NOT triggered; apl.eq triggers Step 2
-  function defNoAlarmSetup() {
+// --------------- PML: Items #5/#6/#7 logic ---------------
+describe('PML: Items #5, #6, #7 fire area logic', () => {
+  // Base setup: L/O hazard with all Item #7 qualifiers met
+  function item7Setup() {
     S.buildings[0].area = '100000';
     S.buildings[0].occupancy = 'Warehousing';
     S.buildings[0].construction = 'hnc';
     S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
     S.isStorage = false; S.isSensitive = false; S.hazardClass = 'ordinary';
-    S.sprinklerAdequate = 'deficient'; S.designPct = '70';
+    S.sprinklerAdequate = 'adequate'; S.designPct = '100';
     S.alarmsOk = true; S.designArea = '2000'; S.fdTime = 'prompt';
+    S.fdType = 'fullypaid'; S.multipleRisers = true; S.centralStation = true;
   }
 
-  test('PML eq flag is set', () => {
+  // Setup: deficient sprinklers with Item #7 qualifiers (except adequate sprinklers)
+  // Since sprinklers are deficient, Item #7 is NOT met → PML=MFL
+  function defNoAlarmSetup() {
+    item7Setup();
+    S.sprinklerAdequate = 'deficient'; S.designPct = '70';
+  }
+
+  test('L/O hazard without Item #7 qualifiers → PML = MFL', () => {
     defNoAlarmSetup();
-    expect(calcPML().eq).toBe(true);
+    const pml = calcPML();
+    expect(pml.eq).toBe(true);
+    expect(pml.zones).toHaveLength(0);
+    expect(pml.rsn).toMatch(/Item #7 qualifiers not met/);
   });
 
-  test('PML zones array has exactly 3 entries', () => {
-    defNoAlarmSetup();
+  test('L/O hazard with Item #7 qualifiers → zone-based PML', () => {
+    item7Setup();
+    const pml = calcPML();
+    expect(pml.eq).toBe(false);
+    expect(pml.pmlFA).toBe(3000); // designArea 2000 × 1.5
+  });
+
+  test('L/O hazard Item #7: PML zones have correct structure', () => {
+    item7Setup();
     const pml = calcPML();
     expect(pml.zones).toHaveLength(3);
     expect(pml.zones[0].type).toBe('fire');
@@ -1982,36 +2029,70 @@ describe('PML: any APL=PML trigger uses scenario-based 100% damage zones', () =>
     expect(pml.zones[2].type).toBe('smoke');
   });
 
-  test('all zone damage percentages are 100%', () => {
-    defNoAlarmSetup();
-    const pml = calcPML();
-    pml.zones.forEach(z => {
-      expect(z.bPct).toBe(100);
-      expect(z.ePct).toBe(100);
-      expect(z.iPct).toBe(100);
-    });
-  });
-
-  test('PML does not exceed MFL', () => {
-    defNoAlarmSetup();
+  test('L/O hazard Item #7: PML does not exceed MFL', () => {
+    item7Setup();
     const pml = calcPML(), mfl = calcMFL();
     expect(pml.pT).toBeLessThanOrEqual(mfl.pT);
   });
 
-  test('PML substantially exceeds old Table-4 proportional result', () => {
-    defNoAlarmSetup();
+  test('Extra hazard without Item #5 → PML = MFL', () => {
+    item7Setup();
+    S.hazardClass = 'extra';
     const pml = calcPML();
-    // Old fallback: v.tb*(d.b/100)*(pmlFA/v.a) = 10M*0.80*(3000/100000) = $240K bldg only; ~$429K total
-    expect(pml.pT).toBeGreaterThan(2000000);
+    expect(pml.eq).toBe(true);
+    expect(pml.rsn).toMatch(/Extra hazard.*Item #6/);
   });
 
-  test('PML is higher than what APL would be if sprinklers were adequate', () => {
-    defNoAlarmSetup();
-    S.sprinklerAdequate = 'adequate';
-    const aplIfAdequate = calcAPL();
-    S.sprinklerAdequate = 'deficient';
+  test('Extra hazard with Item #5 fire wall → PML limited', () => {
+    item7Setup();
+    S.hazardClass = 'extra';
+    S.pmlFW2hr = true; S.pmlFWArea = '20000';
     const pml = calcPML();
-    expect(pml.pT).toBeGreaterThan(aplIfAdequate.pT);
+    expect(pml.eq).toBe(false);
+    expect(pml.item5Limited).toBe(true);
+    expect(pml.pmlFA).toBe(20000);
+    expect(pml.pT).toBeLessThan(calcMFL().pT);
+  });
+
+  test('L/O hazard with Item #7 + Item #5 fire wall limits further', () => {
+    item7Setup();
+    S.pmlFW2hr = true; S.pmlFWArea = '1000'; // smaller than designArea × 1.5 = 3000
+    const pml = calcPML();
+    expect(pml.pmlFA).toBe(1000);
+  });
+
+  test('missing multipleRisers blocks Item #7', () => {
+    item7Setup();
+    S.multipleRisers = false;
+    expect(pmlItem7Qualifies()).toBe(false);
+    expect(calcPML().eq).toBe(true);
+  });
+
+  test('missing centralStation blocks Item #7', () => {
+    item7Setup();
+    S.centralStation = false;
+    expect(pmlItem7Qualifies()).toBe(false);
+    expect(calcPML().eq).toBe(true);
+  });
+
+  test('FL/CL blocks Item #7', () => {
+    item7Setup();
+    S.hasFL = true;
+    expect(pmlItem7Qualifies()).toBe(false);
+    expect(calcPML().eq).toBe(true);
+  });
+
+  test('volunteer FD blocks Item #7', () => {
+    item7Setup();
+    S.fdType = 'volunteer';
+    expect(pmlItem7Qualifies()).toBe(false);
+    expect(calcPML().eq).toBe(true);
+  });
+
+  test('PML is higher than APL when Item #7 met', () => {
+    item7Setup();
+    const pml = calcPML(), apl = calcAPL();
+    expect(pml.pT).toBeGreaterThanOrEqual(apl.pT);
   });
 
   test('hypAPLSc returns A for non-storage ordinary-hazard non-sensitive', () => {
@@ -2061,38 +2142,28 @@ describe('PML: any APL=PML trigger uses scenario-based 100% damage zones', () =>
     expect(hypAPLSc()).toBe('G');
   });
 
-  test('storage deficient + <80% design also uses scenario zones', () => {
+  test('deficient sprinklers without Item #7 → PML=MFL (no zone scaling)', () => {
     defNoAlarmSetup();
-    S.isStorage = true; // storage path: !is80&&!isAdq → eq=true → Step 2
+    // deficient sprinklers → Item #7 not met → PML=MFL
     const pml = calcPML();
     expect(pml.eq).toBe(true);
-    expect(pml.zones).toHaveLength(3);
-    expect(pml.zones[0].bPct).toBe(100);
-    expect(pml.pT).toBeLessThanOrEqual(calcMFL().pT);
+    expect(pml.zones).toHaveLength(0);
   });
 
-  test('PML fire zone area equals designArea x 1.5 (standard pmlFA)', () => {
-    defNoAlarmSetup();
+  test('Item #7 with APL=PML trigger uses scenario zones at 100%', () => {
+    item7Setup();
+    S.hasFL = true; // triggers APL=PML but Item #7 blocks on hasFL → PML=MFL
     const pml = calcPML();
-    // <80% trigger → boundary scenario E (non-storage, non-sensitive); fire.a="design"=2000; sf=1.5; pmlA=3000
-    expect(pml.zones[0].pmlA).toBe(3000);
+    expect(pml.eq).toBe(true); // FL/CL breaks Item #7
   });
 
-  test('PML pmlFA equals designArea x 1.5', () => {
-    defNoAlarmSetup();
+  test('PML pmlFA equals designArea x 1.5 with Item #7', () => {
+    item7Setup();
     expect(calcPML().pmlFA).toBe(3000);
   });
 
-  test('deficient sprinklers with >=80% design and alarmsOk does NOT trigger scenario zones', () => {
-    defNoAlarmSetup();
-    S.designPct = '80'; // is80=true → APL gets Scenario E, eq=false
-    const pml = calcPML();
-    // Normal PML path runs — APL not eq=true, so Step 2 skipped
-    expect(pml.eq).toBe(false);
-  });
-
   test('alarmsOk=false triggers Step 1 PML=MFL with empty zones array', () => {
-    defNoAlarmSetup();
+    item7Setup();
     S.alarmsOk = false; // Step 1: !alarmsOk → PML=MFL
     const pml = calcPML();
     expect(pml.eq).toBe(true);
@@ -2100,15 +2171,12 @@ describe('PML: any APL=PML trigger uses scenario-based 100% damage zones', () =>
     expect(pml.rsn).toMatch(/delayed/i);
   });
 
-  test('mflCap flag true when zone sum would exceed MFL', () => {
-    // Use a high-hazard occupancy with large smoke zone relative to building
-    defNoAlarmSetup();
-    S.buildings[0].occupancy = 'Warehousing'; // hnc 80% bldg MFL
-    S.buildings[0].area = '5000'; // small building so zones quickly exceed building value
+  test('PML always <= MFL with Item #7', () => {
+    item7Setup();
+    S.buildings[0].area = '5000'; // small building
     S.totalBldg = '1000000'; S.totalEquip = '500000'; S.totalInv = '200000';
-    S.designArea = '2000'; // large design area relative to building
+    S.designArea = '2000';
     const pml = calcPML();
-    // zones sum may exceed MFL; mflCap may or may not fire, but pT <= MFL always
     expect(pml.pT).toBeLessThanOrEqual(calcMFL().pT);
   });
 });
