@@ -857,7 +857,7 @@ function r3(){
   <div class="note" style="margin-bottom:6px">For NC/FR construction with a fully paid, prompt FD: credit a NFPA 221 / FMDS 1-21 qualifying fire wall (2 hours+, no large unprotected openings) or adequate building separation to limit the PML fire area.</div>
   <div class="tgr">${tog("Credit 2-hour+ qualifying fire wall (PML)","pmlFW2hr")}</div>
   ${S.pmlFW2hr?fd("Area on origin side of fire wall ("+aU()+")",inp("pmlFWArea","","number")):''}
-  ${item5Active?`<div style="margin-top:4px;font-size:10px;color:var(--suc)"><strong>✓ Item #5 fire wall credited — PML fire area limited to ${fN(pf(S.pmlFWArea))} ${aU()}</strong></div>`:''}
+  ${item5?`<div style="margin-top:4px;font-size:10px;color:var(--suc)"><strong>✓ Item #5 fire wall credited — PML fire area limited to ${fN(pf(S.pmlFWArea))} ${aU()}</strong></div>`:''}
   ${S.pmlFW2hr&&(!isNCFR||!goodFD)?`<div style="margin-top:4px;font-size:10px;color:var(--wrn)"><strong>✗ Item #5 requires noncombustible/fire resistive construction and fully paid prompt FD</strong></div>`:''}</div>
   <div style="background:var(--ibg);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;font-size:11px;color:var(--text)">
     <strong style="color:var(--accent)">PML Fire Area: ${fN(Math.round(usedA))} ${aU()}</strong>
