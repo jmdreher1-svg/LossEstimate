@@ -46,7 +46,7 @@ let S;
 function resetS() {
   S = {
     tab:0, siteName:"", accountNo:"", surveyDate:"", currency:"", units:"imperial",
-    buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",valuePct:""}],
+    buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",bldgPct:"",equipPct:"",invPct:""}],
     primaryIdx:0,
     hazardClass:"ordinary", isStorage:true, isSensitive:false,
     sprinklerType:"wet", sprinklerAdequate:"adequate", designPct:"100",
@@ -88,18 +88,27 @@ function primaryOcc(){return pb().occupancy||"Warehousing"}
 function bldgValue(i){
   const b=S.buildings[i],ov=pf(b.value);
   if(ov>0)return ov;
-  const tv=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);
-  if(S.valueDist==="custom"&&pf(b.valuePct)>0)return tv*(pf(b.valuePct)/100);
-  const ts=totalSqft(),ba=pf(b.area);
+  if(S.valueDist==="custom"){
+    const hasCust=pf(b.bldgPct)>0||pf(b.equipPct)>0||pf(b.invPct)>0;
+    if(hasCust)return bldgCatValue(i,'b')+bldgCatValue(i,'e')+bldgCatValue(i,'i');
+  }
+  const ts=totalSqft(),ba=pf(b.area),tv=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);
   return ts>0?tv*(ba/ts):0;
+}
+function bldgCatValue(i,cat){
+  const b=S.buildings[i],ts=totalSqft(),ba=pf(b.area);
+  const siteVal=cat==='b'?pf(S.totalBldg):cat==='e'?pf(S.totalEquip):pf(S.totalInv);
+  const ov=pf(b.value);
+  if(ov>0){const sitePD=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);return sitePD>0?siteVal*(ov/sitePD):0;}
+  const pctKey=cat==='b'?'bldgPct':cat==='e'?'equipPct':'invPct';
+  if(S.valueDist==="custom"&&pf(b[pctKey])>0)return siteVal*(pf(b[pctKey])/100);
+  return ts>0?siteVal*(ba/ts):0;
 }
 
 function gv(){
-  const a=primaryArea();
+  const a=primaryArea(),pi=S.primaryIdx;
   const siteTb=pf(S.totalBldg),siteTe=pf(S.totalEquip),siteTi=pf(S.totalInv),sitePD=siteTb+siteTe+siteTi;
-  const bv=bldgValue(S.primaryIdx);
-  const prop=sitePD>0?bv/sitePD:1;
-  const tb=siteTb*prop,te=siteTe*prop,ti=siteTi*prop;
+  const tb=bldgCatValue(pi,'b'),te=bldgCatValue(pi,'e'),ti=bldgCatValue(pi,'i');
   let by=pf(S.biYearly);if(S.biMode==="percent"&&pf(S.annualProd)>0&&pf(S.biPct)>0)by=pf(S.annualProd)*(pf(S.biPct)/100);
   return{a,tb,te,ti,by,bpsf:a>0?tb/a:0,epsf:a>0?te/a:0,ipsf:a>0?ti/a:0,pd:tb+te+ti};
 }
@@ -1740,54 +1749,61 @@ describe('gv() - multi-building proportional distribution', () => {
   });
 });
 
-// --------------- Custom value distribution ---------------
-describe('bldgValue() - custom value distribution', () => {
+// --------------- Custom value distribution (per-category) ---------------
+describe('bldgValue() / bldgCatValue() - custom per-category distribution', () => {
   test('default area mode: value proportional to sqft', () => {
     S.buildings = [
-      {name:'Warehouse', area:'80000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', valuePct:''},
-      {name:'Office', area:'20000', construction:'hnc', occupancy:'Office', value:'', separation:'', floors:'', valuePct:''},
+      {name:'Warehouse', area:'80000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', bldgPct:'', equipPct:'', invPct:''},
+      {name:'Office', area:'20000', construction:'hnc', occupancy:'Office', value:'', separation:'', floors:'', bldgPct:'', equipPct:'', invPct:''},
     ];
     S.totalBldg = '8000000'; S.totalEquip = '2000000'; S.totalInv = '0';
-    // Warehouse: 80% of area → 80% of $10M = $8M
     expect(bldgValue(0)).toBeCloseTo(8000000, -3);
-    // Office: 20% of area → 20% of $10M = $2M
     expect(bldgValue(1)).toBeCloseTo(2000000, -3);
   });
 
-  test('custom mode: value based on valuePct', () => {
+  test('custom mode: per-category percentages', () => {
     S.valueDist = 'custom';
     S.buildings = [
-      {name:'Warehouse', area:'80000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', valuePct:'90'},
-      {name:'Office', area:'20000', construction:'hnc', occupancy:'Office', value:'', separation:'', floors:'', valuePct:'10'},
+      {name:'Warehouse', area:'80000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', bldgPct:'60', equipPct:'20', invPct:'90'},
+      {name:'Office', area:'20000', construction:'hnc', occupancy:'Office', value:'', separation:'', floors:'', bldgPct:'40', equipPct:'80', invPct:'10'},
     ];
-    S.totalBldg = '8000000'; S.totalEquip = '2000000'; S.totalInv = '0';
-    // Warehouse: 90% of $10M = $9M
-    expect(bldgValue(0)).toBeCloseTo(9000000, -3);
-    // Office: 10% of $10M = $1M
-    expect(bldgValue(1)).toBeCloseTo(1000000, -3);
+    S.totalBldg = '5000000'; S.totalEquip = '3000000'; S.totalInv = '2000000';
+    // Warehouse: bldg 60% of 5M=3M, equip 20% of 3M=600K, inv 90% of 2M=1.8M → total 5.4M
+    expect(bldgCatValue(0,'b')).toBeCloseTo(3000000, -3);
+    expect(bldgCatValue(0,'e')).toBeCloseTo(600000, -3);
+    expect(bldgCatValue(0,'i')).toBeCloseTo(1800000, -3);
+    expect(bldgValue(0)).toBeCloseTo(5400000, -3);
+    // Office: bldg 40% of 5M=2M, equip 80% of 3M=2.4M, inv 10% of 2M=200K → total 4.6M
+    expect(bldgCatValue(1,'b')).toBeCloseTo(2000000, -3);
+    expect(bldgCatValue(1,'e')).toBeCloseTo(2400000, -3);
+    expect(bldgCatValue(1,'i')).toBeCloseTo(200000, -3);
+    expect(bldgValue(1)).toBeCloseTo(4600000, -3);
   });
 
-  test('custom mode: different $/sqft per building', () => {
+  test('custom mode: gv() reflects per-category values for primary building', () => {
     S.valueDist = 'custom';
     S.buildings = [
-      {name:'Warehouse', area:'80000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', valuePct:'90'},
-      {name:'Office', area:'20000', construction:'hnc', occupancy:'Office', value:'', separation:'', floors:'', valuePct:'10'},
+      {name:'Warehouse', area:'80000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', bldgPct:'60', equipPct:'20', invPct:'90'},
+      {name:'Office', area:'20000', construction:'hnc', occupancy:'Office', value:'', separation:'', floors:'', bldgPct:'40', equipPct:'80', invPct:'10'},
     ];
     S.primaryIdx = 0;
-    S.totalBldg = '8000000'; S.totalEquip = '2000000'; S.totalInv = '0';
+    S.totalBldg = '5000000'; S.totalEquip = '3000000'; S.totalInv = '2000000';
     const v = gv();
-    // Warehouse $/sqft = 9M / 80000 = $112.50/sqft
-    expect(v.bpsf + v.epsf + v.ipsf).toBeCloseTo(9000000 / 80000, 0);
+    // Warehouse bldg $/sqft = 3M / 80K = $37.50
+    expect(v.bpsf).toBeCloseTo(37.5, 1);
+    // Warehouse equip $/sqft = 600K / 80K = $7.50
+    expect(v.epsf).toBeCloseTo(7.5, 1);
+    // Warehouse inv $/sqft = 1.8M / 80K = $22.50
+    expect(v.ipsf).toBeCloseTo(22.5, 1);
   });
 
-  test('custom mode: empty valuePct falls back to area proportion', () => {
+  test('custom mode: empty percentages fall back to area proportion', () => {
     S.valueDist = 'custom';
     S.buildings = [
-      {name:'A', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', valuePct:''},
-      {name:'B', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', valuePct:''},
+      {name:'A', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', bldgPct:'', equipPct:'', invPct:''},
+      {name:'B', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', bldgPct:'', equipPct:'', invPct:''},
     ];
     S.totalBldg = '10000000'; S.totalEquip = '0'; S.totalInv = '0';
-    // Both empty valuePct → falls back to area proportion (50/50)
     expect(bldgValue(0)).toBeCloseTo(5000000, -3);
     expect(bldgValue(1)).toBeCloseTo(5000000, -3);
   });
@@ -1795,11 +1811,23 @@ describe('bldgValue() - custom value distribution', () => {
   test('value override takes precedence over custom distribution', () => {
     S.valueDist = 'custom';
     S.buildings = [
-      {name:'A', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'3000000', separation:'', floors:'', valuePct:'70'},
+      {name:'A', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'3000000', separation:'', floors:'', bldgPct:'70', equipPct:'70', invPct:'70'},
     ];
     S.totalBldg = '10000000'; S.totalEquip = '0'; S.totalInv = '0';
-    // value override (3M) wins over valuePct (70% = 7M)
     expect(bldgValue(0)).toBe(3000000);
+  });
+
+  test('partial custom: only some categories have percentages', () => {
+    S.valueDist = 'custom';
+    S.buildings = [
+      {name:'Warehouse', area:'80000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', bldgPct:'70', equipPct:'', invPct:'90'},
+      {name:'Office', area:'20000', construction:'hnc', occupancy:'Office', value:'', separation:'', floors:'', bldgPct:'30', equipPct:'', invPct:'10'},
+    ];
+    S.totalBldg = '5000000'; S.totalEquip = '3000000'; S.totalInv = '2000000';
+    // bldg: 70% of 5M = 3.5M, equip: falls back to area (80%) = 2.4M, inv: 90% of 2M = 1.8M
+    expect(bldgCatValue(0,'b')).toBeCloseTo(3500000, -3);
+    expect(bldgCatValue(0,'e')).toBeCloseTo(2400000, -3);
+    expect(bldgCatValue(0,'i')).toBeCloseTo(1800000, -3);
   });
 });
 

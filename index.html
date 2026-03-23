@@ -151,7 +151,7 @@ const S={
   tab:0,siteName:"",accountNo:"",surveyDate:"",
   currency:"",units:"imperial",
   // Buildings array: each has name, area, construction, occupancy, value (override), separation (for MFL)
-  buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",valuePct:""}],
+  buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",bldgPct:"",equipPct:"",invPct:""}],
   primaryIdx:0, // which building is the primary fire area
   // Site-wide
   hazardClass:"ordinary",isStorage:true,isSensitive:false,
@@ -208,7 +208,7 @@ function totalSqft(){return S.buildings.reduce((s,b)=>s+pf(b.area),0)}
 function primaryArea(){return pf(pb().area)}
 function primaryConst(){return pb().construction}
 function primaryOcc(){return pb().occupancy||"Warehousing"}
-function addBldg(){S.buildings.push({name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",valuePct:""});render()}
+function addBldg(){S.buildings.push({name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",bldgPct:"",equipPct:"",invPct:""});render()}
 function rmBldg(i){if(S.buildings.length<=1)return;S.buildings.splice(i,1);if(S.primaryIdx>=S.buildings.length)S.primaryIdx=0;render()}
 function setBldg(i,k,v){S.buildings[i][k]=v}
 function setBldgR(i,k,el){S.buildings[i][k]=el.value;render()}
@@ -218,18 +218,30 @@ function setPrimary(i){S.primaryIdx=i;render()}
 function bldgValue(i){
   const b=S.buildings[i],ov=pf(b.value);
   if(ov>0)return ov;
-  const tv=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);
-  if(S.valueDist==="custom"&&pf(b.valuePct)>0)return tv*(pf(b.valuePct)/100);
-  const ts=totalSqft(),ba=pf(b.area);
+  if(S.valueDist==="custom"){
+    const hasCust=pf(b.bldgPct)>0||pf(b.equipPct)>0||pf(b.invPct)>0;
+    if(hasCust)return bldgCatValue(i,'b')+bldgCatValue(i,'e')+bldgCatValue(i,'i');
+  }
+  const ts=totalSqft(),ba=pf(b.area),tv=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);
   return ts>0?tv*(ba/ts):0;
+}
+// Per-category value for building i: 'b'=building, 'e'=equipment, 'i'=inventory
+function bldgCatValue(i,cat){
+  const b=S.buildings[i],ts=totalSqft(),ba=pf(b.area);
+  const siteVal=cat==='b'?pf(S.totalBldg):cat==='e'?pf(S.totalEquip):pf(S.totalInv);
+  // Value override: use its proportion of total PD
+  const ov=pf(b.value);
+  if(ov>0){const sitePD=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);return sitePD>0?siteVal*(ov/sitePD):0;}
+  const pctKey=cat==='b'?'bldgPct':cat==='e'?'equipPct':'invPct';
+  if(S.valueDist==="custom"&&pf(b[pctKey])>0)return siteVal*(pf(b[pctKey])/100);
+  return ts>0?siteVal*(ba/ts):0;
 }
 
 function gv(){
-  const a=primaryArea();
+  const a=primaryArea(),pi=S.primaryIdx;
   const siteTb=pf(S.totalBldg),siteTe=pf(S.totalEquip),siteTi=pf(S.totalInv),sitePD=siteTb+siteTe+siteTi;
-  const bv=bldgValue(S.primaryIdx);
-  const prop=sitePD>0?bv/sitePD:1;
-  const tb=siteTb*prop,te=siteTe*prop,ti=siteTi*prop;
+  // Per-category distribution
+  const tb=bldgCatValue(pi,'b'),te=bldgCatValue(pi,'e'),ti=bldgCatValue(pi,'i');
   let by=pf(S.biYearly);if(S.biMode==="percent"&&pf(S.annualProd)>0&&pf(S.biPct)>0)by=pf(S.annualProd)*(pf(S.biPct)/100);
   return{a,tb,te,ti,by,bpsf:a>0?tb/a:0,epsf:a>0?te/a:0,ipsf:a>0?ti/a:0,pd:tb+te+ti};
 }
@@ -651,34 +663,38 @@ function r0(){
 }
 
 function r1(){
-  const v=gv(),ts=totalSqft(),sitePD=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);
+  const v=gv(),ts=totalSqft();
   const isCustom=S.valueDist==="custom";
-  // Calculate sum of custom percentages for validation
-  const customPctSum=S.buildings.reduce((s,b)=>s+pf(b.valuePct),0);
+  // Calculate sum of custom percentages per category for validation
+  const bPctSum=S.buildings.reduce((s,b)=>s+pf(b.bldgPct),0);
+  const ePctSum=S.buildings.reduce((s,b)=>s+pf(b.equipPct),0);
+  const iPctSum=S.buildings.reduce((s,b)=>s+pf(b.invPct),0);
   let distHtml=S.buildings.map((b,i)=>{
     const ba=pf(b.area),areaPct=ts>0?(ba/ts*100).toFixed(1):0;
-    const bVal=bldgValue(i),bPsf=ba>0?bVal/ba:0;
+    const bVal=bldgValue(i),bCat=bldgCatValue(i,'b'),eCat=bldgCatValue(i,'e'),iCat=bldgCatValue(i,'i');
     if(isCustom){
-      return`<div style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr;gap:8px;align-items:center;padding:4px 0;font-size:12px;color:var(--text)">
-        <div><strong>${b.name||"Building "+(i+1)}</strong> <span style="color:var(--dim)">(${fN(ba)} ${aU()}, ${areaPct}% area)</span></div>
-        <div class="fd" style="margin:0"><input type="number" value="${esc(b.valuePct)}" placeholder="${areaPct}" step="0.1" min="0" max="100" style="text-align:center" oninput="setBldg(${i},'valuePct',this.value)" onblur="setBldgR(${i},'valuePct',this)"></div>
-        <div style="color:var(--accent);font-weight:600">${cs()}${bPsf.toFixed(2)}/${aU()}</div>
-        <div style="color:var(--muted)">${fmtF(bVal)}</div>
+      return`<div style="display:grid;grid-template-columns:1.2fr .5fr .5fr .5fr .9fr;gap:6px;align-items:center;padding:5px 0;font-size:12px;color:var(--text);border-bottom:1px solid var(--border)">
+        <div><strong>${b.name||"Building "+(i+1)}</strong><br><span style="color:var(--dim);font-size:10px">${fN(ba)} ${aU()} (${areaPct}% area)</span></div>
+        <div class="fd" style="margin:0"><input type="number" value="${esc(b.bldgPct)}" placeholder="${areaPct}" step="0.1" min="0" max="100" style="text-align:center;font-size:11px" oninput="setBldg(${i},'bldgPct',this.value)" onblur="setBldgR(${i},'bldgPct',this)"></div>
+        <div class="fd" style="margin:0"><input type="number" value="${esc(b.equipPct)}" placeholder="${areaPct}" step="0.1" min="0" max="100" style="text-align:center;font-size:11px" oninput="setBldg(${i},'equipPct',this.value)" onblur="setBldgR(${i},'equipPct',this)"></div>
+        <div class="fd" style="margin:0"><input type="number" value="${esc(b.invPct)}" placeholder="${areaPct}" step="0.1" min="0" max="100" style="text-align:center;font-size:11px" oninput="setBldg(${i},'invPct',this.value)" onblur="setBldgR(${i},'invPct',this)"></div>
+        <div style="font-size:10px;color:var(--muted);line-height:1.5">B: ${fmtF(bCat)} (${cs()}${(ba>0?bCat/ba:0).toFixed(2)}/${aU()})<br>E: ${fmtF(eCat)} (${cs()}${(ba>0?eCat/ba:0).toFixed(2)}/${aU()})<br>I: ${fmtF(iCat)} (${cs()}${(ba>0?iCat/ba:0).toFixed(2)}/${aU()})</div>
       </div>`;
     }
-    return`<div style="font-size:12px;color:var(--text);padding:4px 0"><strong>${b.name||"Building "+(i+1)}</strong>: ${fN(ba)} ${aU()} (${areaPct}%) = ${fmtF(bVal)} (${cs()}${bPsf.toFixed(2)}/${aU()})${pf(b.value)>0?' <span style="color:var(--accent)">(override)</span>':''}</div>`;
+    return`<div style="font-size:12px;color:var(--text);padding:4px 0"><strong>${b.name||"Building "+(i+1)}</strong>: ${fN(ba)} ${aU()} (${areaPct}%) = ${fmtF(bVal)}${pf(b.value)>0?' <span style="color:var(--accent)">(override)</span>':''}</div>`;
   }).join('');
-  const pctStatus=isCustom?`<div style="margin-top:6px;font-size:11px;font-weight:600;color:${Math.abs(customPctSum-100)<0.1?'var(--success)':'var(--danger)'}">${customPctSum.toFixed(1)}% of 100%${Math.abs(customPctSum-100)>=0.1?' — percentages should sum to 100%':' ✓'}</div>`:'';
+  function pctCheck(sum,label){const ok=Math.abs(sum-100)<0.1;return sum>0?`<span style="color:${ok?'var(--success)':'var(--danger)'}"><strong>${label}:</strong> ${sum.toFixed(1)}%${ok?' ✓':''}</span>`:'';}
+  const pctStatus=isCustom?`<div style="margin-top:8px;font-size:11px;display:flex;gap:16px">${pctCheck(bPctSum,'Bldg')}${pctCheck(ePctSum,'Equip')}${pctCheck(iPctSum,'Inv')}</div>${(bPctSum>0&&Math.abs(bPctSum-100)>=0.1)||(ePctSum>0&&Math.abs(ePctSum-100)>=0.1)||(iPctSum>0&&Math.abs(iPctSum-100)>=0.1)?'<div style="margin-top:4px;font-size:10px;color:var(--danger)">Each category\'s percentages should sum to 100%</div>':''}`:'';
   return`<div class="cd"><h3 class="ct">Total Site Property Values</h3>
   <p style="color:var(--muted);font-size:11px;margin-bottom:10px">Enter the total reported values. They distribute to buildings proportionally by area unless you customize the distribution below.</p>
   <div class="g3">${fd("Total Building",inp("totalBldg","10,000,000","number"))}${fd("Total Equipment/M&E",inp("totalEquip","25,000,000","number"))}${fd("Total Inventory/WIP",inp("totalInv","2,000,000","number"))}</div></div>
   ${S.buildings.length>1?`<div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">Value Distribution by Building</h3></div>
   <div class="tgr" style="margin-bottom:10px"><div class="tg" onclick="set('valueDist',S.valueDist==='custom'?'area':'custom')"><div class="tgt${S.valueDist==='custom'?' on':''}"><div class="tgk"></div></div><span>Custom Value Weighting</span></div></div>
-  ${isCustom?'<div class="note">Set each building\'s share of total site value (%). The weighted $/'+aU()+' for each building will derive from its % share and area. Leave blank to default to area proportion.</div>':''}
-  ${isCustom?'<div style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr;gap:8px;padding:2px 0;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Building</div><div>% of Value</div><div>$/'+aU()+'</div><div>Value</div></div>':''}
+  ${isCustom?'<div class="note">Set each building\'s share of each value category (%). For example, a warehouse might have 60% of building value but 90% of inventory. Each category should independently sum to 100%. Leave blank to default to area proportion.</div>':''}
+  ${isCustom?'<div style="display:grid;grid-template-columns:1.2fr .5fr .5fr .5fr .9fr;gap:6px;padding:2px 0;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Building</div><div>% Bldg</div><div>% Equip</div><div>% Inv</div><div>Values / $/'+aU()+'</div></div>':''}
   ${distHtml}${pctStatus}</div>`:''}
   <div class="cd"><h3 class="ct">Primary Building (per ${aU()})</h3>
-  <div style="margin-bottom:8px;font-size:11px;color:var(--muted)">Based on primary building area of ${fN(v.a)} ${aU()}${isCustom&&pf(S.buildings[S.primaryIdx].valuePct)>0?' ('+pf(S.buildings[S.primaryIdx].valuePct)+'% of site value)':''}</div>
+  <div style="margin-bottom:8px;font-size:11px;color:var(--muted)">Based on primary building area of ${fN(v.a)} ${aU()}</div>
   <div class="g3">${vc("Building",cs()+v.bpsf.toFixed(2),fmtF(v.tb))}${vc("Equipment",cs()+v.epsf.toFixed(2),fmtF(v.te))}${vc("Inv/WIP",cs()+v.ipsf.toFixed(2),fmtF(v.ti))}</div></div>`;
 }
 
@@ -836,6 +852,7 @@ function rRev(){
   <table style="width:100%;border-collapse:collapse;font-size:12px">
   <thead><tr style="border-bottom:2px solid var(--border)"><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Rev</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Date</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Author</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Status</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Description</th></tr></thead>
   <tbody>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.12</td><td style="padding:8px">03/23/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Rounding changed from tiered ($1K under $100K / $100K over $100K) to uniform $10,000 rounding. Zone-level damages (fire, water, smoke × building, equipment, inventory) are now each rounded to the nearest $10,000 individually; category totals (pB, pE, pI) and grand totals (pT) are straight additions of the rounded zone values with no additional rounding. Custom per-building value distribution: added optional "Custom Value Weighting" toggle on the Values tab. When enabled, each building can have independent percentages for Building, Equipment, and Inventory value categories (e.g., warehouse gets 60% of building value but 90% of inventory, office gets 40% of building but 10% of inventory). Each category's percentages should independently sum to 100%. The resulting $/sqft per building derives naturally from the percentage allocation and each building's area. Default behavior (off) remains area-proportional distribution. Value overrides on MFL tab still take precedence. 247 tests passing.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.11</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Added APL damage percentage manual override on the APL tab, allowing engineers to adjust Table 1A damage percentages (building, equipment, inventory) for each zone (fire, water, smoke). Each percentage &lt; 100% shows an input field with the Table 1A default as placeholder and the typical range noted alongside. Overrides are scenario-specific and persist across tab switches. Adjusted values carry through to PML zone-based calculations. Narratives annotate adjusted values with "(adjusted)". Reset button restores Table 1A defaults. Removed high-rise module (Figure 2, Table 2, FMDS 1-3 exterior fire spread, floor-by-floor MFL) from automated calculations — high-rise tab now displays a note directing engineers to perform high-rise loss estimates manually. Implemented FP 5020 Table 5 (Maximum % Building Damage that Defaults to Full Structure Loss): if Table 4 building damage percentage meets or exceeds the Table 5 condemnation threshold (based on building area and construction type), building damage defaults to 100% (full structure loss). Equipment and inventory remain at Table 4 percentages. Condemnation check shown in MFL narrative and results badge. Floor count field retained on Site Info for multi-story non-high-rise buildings.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.10</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Unified PML logic: scenario-based 100% damage zones now apply for ALL APL=PML triggers (&lt;80% of design, FL/CL present, Table 1B deficiencies) — not only the deficient+inadequate alarms case. Previously these cases fell through to the broken Table 4 proportional fallback, producing PML values lower than APL. Now any apl.eq=true condition routes to Step 2: hypothetical APL scenario zone ratios scaled to design area × 1.5 with 100% damage throughout, capped at MFL. For &lt;80% design triggers, the boundary scenario (G for storage, E/F for non-storage, fire area = design area) is used so the PML scale factor stays near 1.5x — preventing the artificial spike that occurred when the fully-adequate scenario's small fixed fire area (e.g., 500 sqft for ESFR/Scenario H) created a 6x scale factor at 79% vs 1.5x at 80%. Additionally, inadequate alarms/FD/PEO (alarmsOk=false) now triggers Step 1 PML=MFL (delayed response); PML tab FD Response selector auto-locks to "Delayed" when alarmsOk=false. FL/CL toggle label updated to include "Flammable/Combustible Liquids" explicitly. Test suite updated and expanded to 242 passing tests.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.9</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Corrected PML logic for deficient sprinkler system with inadequate alarms/FD/PEO. Previously this condition forced PML = MFL (entire building at Table 4 percentages), which overcounted the loss. The PML now uses the hypothetical APL scenario that would apply if the deficiency did not exist, scales all three damage zones (fire, water, smoke) proportionally to the standard PML fire area (design area x 1.5), and applies 100% damage throughout — producing a scenario-grounded PML that is noticeably higher than APL but appropriately lower than MFL for most configurations. PML is capped at MFL if zone stacking causes it to exceed that threshold. Added hypAPLSc() helper to determine the hypothetical scenario. Narrative updated to show full zone-by-zone breakdown with scale factor. New tests added covering scenario selection, zone structure, damage percentages, ordering, and magnitude.</td></tr>
