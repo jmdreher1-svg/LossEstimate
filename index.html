@@ -165,6 +165,9 @@ const S={
   valueDist:"area", // "area" = proportional by sqft (default), "custom" = user-specified % per building
   // PML
   pmlSystem:"sprinkler_riser",fdTime:"prompt",fdType:"fullypaid",pmlArea:"",hasCombConst:false,
+  multipleRisers:false,centralStation:false,
+  // PML fire wall (2-hour+ per item #5)
+  pmlFW2hr:false,pmlFWArea:"",
   // MFL
   fw4hr:false,fwArea:"",
   // High rise (deprecated — kept for saved-state compat, no longer used in calculations)
@@ -351,6 +354,42 @@ function calcMFL(){
 // Hypothetical APL scenario: what would apply if sprinklers were adequate (used for deficient+no alarms PML)
 function hypAPLSc(){const isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";if(S.isStorage){if(S.hasFL)return"G";if(S.isSensitive)return S.protType==="esfr"?"I":S.protType==="cmsa"?"K":"D";return S.protType==="esfr"?"H":S.protType==="cmsa"?"J":"C";}if(S.isSensitive)return isLO?"B":"D";return isLO?"A":"C";}
 
+// Item #5: NC/FR construction + fully paid prompt FD → credit 2hr+ fire wall to limit fire area
+// Item #6: Extra hazard/storage (no FL/CL) + NC/FR + fully paid prompt FD → fire area limited ONLY per item #5
+// Item #7: L/O hazard (no FL/CL) + adequate sprinklers + multiple risers + central station/24hr + good FD → design area + 50%; also per #5
+function pmlItem5Limit(bldgArea){
+  // Item #5 requires NC/FR construction and fully paid prompt FD
+  const isNCFR=primaryConst()==="fr"||primaryConst()==="hnc"||primaryConst()==="lnc";
+  const goodFD=S.fdType==="fullypaid"&&S.fdTime==="prompt";
+  if(!isNCFR||!goodFD)return bldgArea;
+  // Credit 2-hour fire wall to limit area
+  if(S.pmlFW2hr&&pf(S.pmlFWArea)>0)return Math.min(pf(S.pmlFWArea),bldgArea);
+  return bldgArea;
+}
+function pmlItem7Qualifies(){
+  // Item #7: light/ordinary hazard, no FL/CL, adequate sprinklers, multiple risers, central station/24hr, good FD
+  const isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";
+  return isLO&&!S.hasFL&&S.sprinklerAdequate==="adequate"&&S.multipleRisers&&S.centralStation&&S.fdType==="fullypaid"&&S.fdTime==="prompt";
+}
+function pmlDefaultFA(designA,bldgArea){
+  // User override takes priority
+  if(pf(S.pmlArea)>0)return Math.min(pf(S.pmlArea),bldgArea);
+  const isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";
+  const isNCFR=primaryConst()==="fr"||primaryConst()==="hnc"||primaryConst()==="lnc";
+  const goodFD=S.fdType==="fullypaid"&&S.fdTime==="prompt";
+  // Item #7: L/O hazard with all qualifiers → design area × 1.5, also limited by item #5
+  if(pmlItem7Qualifies()){
+    const fa=designA*1.5;
+    return Math.min(pmlItem5Limit(fa),bldgArea);
+  }
+  // Item #6: Extra hazard or storage (no FL/CL) + NC/FR + good FD → limited only by item #5 (fire wall)
+  if(!isLO&&!S.hasFL&&isNCFR&&goodFD){
+    return pmlItem5Limit(bldgArea);
+  }
+  // Default: design area × 1.5 (standard assumption)
+  return Math.min(designA*1.5,bldgArea);
+}
+
 // PML
 function calcPML(){
   const v=gv(),mfl=calcMFL(),apl=calcAPL();
@@ -369,7 +408,7 @@ function calcPML(){
     if(hSc&&APL_SC[hSc]){const s=APL_SC[hSc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
       const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
       const aplFireA=rA(sys.fire.a);
-      let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
+      let pmlFA=pmlDefaultFA(designA,v.a);
       const sf=aplFireA>0?pmlFA/aplFireA:1;
       let pB=0,pE=0,pI=0,zones=[];
       ["fire","water","smoke"].forEach(t=>{const zd=sys[t];const aplZA=rA(zd.a);const pmlZA=Math.min(Math.round(aplZA*sf),v.a);const bD=rLE((v.tb/v.a)*pmlZA),eD=rLE((v.te/v.a)*pmlZA),iD=rLE((v.ti/v.a)*pmlZA);pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:aplZA,pmlA:pmlZA,bPct:100,ePct:100,iPct:100,bD,eD,iD});});
@@ -379,7 +418,7 @@ function calcPML(){
     return{...mfl,eq:true,rsn:`${aplEqRsn}: no adequate protection scenario available, so PML = MFL`,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   const o=MFL_T[primaryOcc()];if(!o||v.a===0)return{pB:0,pE:0,pI:0,pT:0,biM:0,eq:false,zones:[]};
   const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||defDA();
-  let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
+  let pmlFA=pmlDefaultFA(designA,v.a);
   let pB=0,pE=0,pI=0,zones=[];
   if(apl.sc&&APL_SC[apl.sc]){const s=APL_SC[apl.sc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;
     const aplFA=(x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0})(sys.fire.a);
@@ -487,11 +526,25 @@ function genN(){
       if(pml.pmlAreaOverride){
         p+=`PML Fire Area (user-specified): ${fN(Math.round(pml.pmlFA))} ${aU()}\n\n`;
       } else {
+        const isLO_eq=S.hazardClass==="light"||S.hazardClass==="ordinary";
+        const item7_eq=pmlItem7Qualifies();
+        const isNCFR_eq=primaryConst()==="fr"||primaryConst()==="hnc"||primaryConst()==="lnc";
+        const goodFD_eq=S.fdType==="fullypaid"&&S.fdTime==="prompt";
+        const item5_eq=isNCFR_eq&&goodFD_eq&&S.pmlFW2hr&&pf(S.pmlFWArea)>0;
         p+=`PML Fire Area Derivation:\n`;
-        p+=`  Due to protection deficiencies (${pml.aplEqRsn||"APL = PML"}), the fire is assumed to grow uncontrolled across the entire sprinkler design area (full hydraulic zone) plus 50% spread into the adjacent zone before fire department arrival:\n`;
+        p+=`  Due to protection deficiencies (${pml.aplEqRsn||"APL = PML"}), the fire is assumed to grow uncontrolled. `;
+        if(item7_eq){
+          p+=`Per Item #7 (L/O hazard, adequate sprinklers, multiple risers, central station/24hr, good FD), fire area is limited to design area + 50%:\n`;
+        } else if(!isLO_eq&&!S.hasFL&&isNCFR_eq&&goodFD_eq){
+          p+=`Per Item #6 (extra hazard/storage, NC/FR, good FD), fire area is limited only by Item #5 (physical separations):\n`;
+        } else {
+          p+=`Fire area is based on the full sprinkler zone plus 50% spread:\n`;
+        }
         p+=`    Full sprinkler zone (design area):    ${fN(dA)} ${aU()}\n`;
-        p+=`    Adjacent zone spread (+50%):         +${fN(Math.round(dA*0.5))} ${aU()}\n`;
-        p+=`    PML fire area (design area x 1.5):    ${fN(Math.round(pml.pmlFA))} ${aU()}\n\n`;
+        if(item7_eq||isLO_eq){p+=`    Adjacent zone spread (+50%):         +${fN(Math.round(dA*0.5))} ${aU()}\n`;}
+        p+=`    PML fire area:                        ${fN(Math.round(pml.pmlFA))} ${aU()}`;
+        if(item5_eq){p+=` (limited by Item #5 fire wall)`;}
+        p+=`\n\n`;
         p+=`  Note: the APL fire zone under Scenario ${pml.hypSc} is only ${fN(aplFA)} ${aU()} — the area where active sprinkler suppression would have controlled the fire. The PML fire area (${fN(Math.round(pml.pmlFA))} ${aU()}) is based on the full sprinkler zone boundary, not 1.5x the APL fire zone.\n\n`;
       }
       p+=`Scale Factor: PML fire area ${fN(Math.round(pml.pmlFA))} ${aU()} ÷ APL Scenario ${pml.hypSc} fire zone ${fN(aplFA)} ${aU()} = ${sf.toFixed(2)}x\n\n`;
@@ -514,7 +567,24 @@ function genN(){
     }
   } else {
     const da=pf(S.designArea)||defDA(), pa=pml.pmlFA||da*1.5;
-    p+=`With the ${sysName} impaired, there is no containment of the fire until it reaches the boundary of the sprinkler system zone. The PML fire area is estimated at ${fN(Math.round(pa))} ${paU()}, based on the sprinkler design area of ${fN(da)} ${paU()} plus 50% for fire growth before external response limits the spread. The ${S.fdType==="fullypaid"?"fully-paid fire department":"fire department"} is assumed to respond and contain the fire in conjunction with physical separations.\n\n`;
+    const isLO_n=S.hazardClass==="light"||S.hazardClass==="ordinary";
+    const item7_n=pmlItem7Qualifies();
+    const isNCFR_n=primaryConst()==="fr"||primaryConst()==="hnc"||primaryConst()==="lnc";
+    const goodFD_n=S.fdType==="fullypaid"&&S.fdTime==="prompt";
+    const item5_n=isNCFR_n&&goodFD_n&&S.pmlFW2hr&&pf(S.pmlFWArea)>0;
+    p+=`With the ${sysName} impaired, there is no containment of the fire until it reaches the boundary of the sprinkler system zone. `;
+    if(item7_n){
+      p+=`Per FP 5020 Item #7, for light and ordinary hazard occupancies without significant flammable/combustible liquids, with adequately designed sprinkler systems, multiple sprinkler systems in the building, ${S.centralStation?"central station supervision":"24-hour occupancy"}, and a well-trained, equipped, quick-responding fire department, the fire area may be limited to the size of the sprinkler system where the fire originated plus 50%. `;
+      p+=`The PML fire area is ${fN(Math.round(pa))} ${aU()} (design area ${fN(da)} ${aU()} × 1.5).`;
+      if(item5_n){p+=` Per Item #5, the fire area is further limited by a 2-hour+ qualifying fire wall to ${fN(pf(S.pmlFWArea))} ${aU()}.`;}
+    } else if(!isLO_n&&!S.hasFL&&isNCFR_n&&goodFD_n){
+      p+=`Per FP 5020 Item #6, for extra hazard and storage occupancies without significant flammable/combustible liquids, with noncombustible/fire resistive construction and a fully paid, well-equipped fire department, the fire area may only be limited per Item #5. `;
+      if(item5_n){p+=`A 2-hour+ qualifying fire wall is credited per Item #5, limiting the PML fire area to ${fN(pf(S.pmlFWArea))} ${aU()} on the origin side of the wall.`;}
+      else{p+=`No 2-hour fire wall or qualifying building separation is credited under Item #5; the PML fire area defaults to the full building area of ${fN(Math.round(pa))} ${aU()}.`;}
+    } else {
+      p+=`The PML fire area is estimated at ${fN(Math.round(pa))} ${aU()}, based on the sprinkler design area of ${fN(da)} ${aU()} plus 50% for fire growth before external response limits the spread.`;
+    }
+    p+=` The ${S.fdType==="fullypaid"?"fully-paid fire department":"fire department"} is assumed to respond and contain the fire in conjunction with physical separations.\n\n`;
 
     if(pml.zones&&pml.zones.length>0&&apl.sc){
       const aplFA=pml.zones[0].aplA;
@@ -770,17 +840,42 @@ function r2(){
 }
 
 function r3(){
-  const pml=calcPML(),apl=calcAPL(),v=gv(),dA=pf(S.designArea)||defDA(),calcA=Math.min(Math.round(dA*1.5),v.a||Infinity),usedA=pf(S.pmlArea)>0?Math.min(pf(S.pmlArea),v.a||Infinity):calcA;
+  const pml=calcPML(),apl=calcAPL(),v=gv(),dA=pf(S.designArea)||defDA();
+  const isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";
+  const usedA=pml.pmlFA||Math.min(Math.round(dA*1.5),v.a||Infinity);
+  const item7=pmlItem7Qualifies();
+  const isNCFR=primaryConst()==="fr"||primaryConst()==="hnc"||primaryConst()==="lnc";
+  const goodFD=S.fdType==="fullypaid"&&S.fdTime==="prompt";
+  const item5Active=isNCFR&&goodFD&&S.pmlFW2hr&&pf(S.pmlFWArea)>0;
+  // Determine which item governs fire area
+  let faReason="";
+  if(pf(S.pmlArea)>0){faReason="(override)";}
+  else if(item7&&item5Active){faReason=`(Item #7: design area × 1.5 = ${fN(Math.round(dA*1.5))} ${aU()}, limited by Item #5 fire wall to ${fN(pf(S.pmlFWArea))} ${aU()})`;}
+  else if(item7){faReason=`(Item #7: design area ${fN(dA)} ${aU()} × 1.5)`;}
+  else if(!isLO&&!S.hasFL&&item5Active){faReason=`(Item #6: limited by Item #5 fire wall to ${fN(pf(S.pmlFWArea))} ${aU()})`;}
+  else if(!isLO&&!S.hasFL&&isNCFR&&goodFD){faReason=`(Item #6 applies: NC/FR + good FD, but no 2hr fire wall credited — defaults to full building area)`;}
+  else{faReason=`(default: design area × 1.5 = ${fN(Math.round(Math.min(dA*1.5,v.a||Infinity)))} ${aU()})`;}
   return`<div class="cd"><h3 class="ct">PML Configuration</h3>
-  <div class="note">The PML fire area represents the area that would burn before the fire department or physical barriers contain the fire, given the single system failure. With no sprinkler containment, the fire grows to the full sprinkler zone area plus additional spread before response.</div>
+  <div class="note">The PML fire area is governed by FP 5020 Items #5–7. For light/ordinary hazard (Item #7), fire area may be limited to design area + 50% if all qualifiers are met. For extra hazard/storage (Item #6), fire area is limited only by physical separations (Item #5). Item #5 credits NC/FR construction with a 2-hour+ fire wall and fully paid prompt FD.</div>
   <div class="g2">${fd("Single System Failure",sel("pmlSystem",[["sprinkler_riser","Sprinkler Riser / Control Valve"],["fire_pump","Fire Pump"],["detection","Detection / Alarm System"],["clean_agent","Clean Agent System"],["foam_system","Foam System"],["deluge","Deluge System"],["other","Other"]]))}
   ${fd("PML Fire Area Override ("+aU()+")<br><span style='font-size:9px;color:var(--dim)'>Leave blank for default</span>",inp("pmlArea","","number"))}</div>
-  <div style="background:var(--ibg);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;font-size:11px;color:var(--text)">
-    <strong style="color:var(--accent)">PML Fire Area: ${fN(usedA)} ${aU()}</strong>
-    <span style="color:var(--muted);margin-left:6px">${pf(S.pmlArea)>0?"(override)":"(default: "+fN(dA)+" "+aU()+" design area x 1.5 = "+fN(calcA)+" "+aU()+")"}</span>
-  </div>
   <div class="g2">${fd("FD Response",S.alarmsOk===false?`<input disabled value="Delayed (over 40 min), PML=MFL" style="opacity:.7"><div class="note" style="margin-top:4px;font-size:10px;color:var(--wrn)">Auto-set: inadequate alarms/notification implies delayed FD response</div>`:sel("fdTime",[["prompt","Prompt (under 40 min)"],["delayed","Delayed (over 40 min), PML=MFL"]]))}${fd("FD Type",sel("fdType",[["fullypaid","Fully Paid & Well Equipped"],["combination","Combination"],["volunteer","Volunteer"]]))}</div>
-  <div class="tgr">${tog("Combustible Construction/Cladding","hasCombConst")}</div></div>
+  <div class="tgr">${tog("Combustible Construction/Cladding","hasCombConst")}</div>
+  <div class="cd" style="background:var(--ibg);margin:8px 0;padding:10px;border-radius:6px;border:1px solid var(--border)"><h4 style="margin:0 0 6px 0;font-size:11px;color:var(--accent)">Item #7 Qualifiers (Light/Ordinary Hazard — 50% Fire Area Increase)</h4>
+  <div class="note" style="margin-bottom:6px">All conditions must be met for the fire area to be limited to design area + 50%. Currently: <strong>${isLO?"Light/Ordinary":"Extra"} Hazard</strong>${!isLO?' — Item #7 does not apply (extra hazard); see Item #6':''}</div>
+  <div class="tgr">${tog("Multiple sprinkler risers/systems in building","multipleRisers")}</div>
+  <div class="tgr">${tog("Central station supervision or 24-hour occupancy","centralStation")}</div>
+  ${isLO?`<div style="margin-top:4px;font-size:10px;color:${item7?'var(--suc)':'var(--wrn)'}"><strong>${item7?'✓ All Item #7 qualifiers met — fire area limited to design area + 50%':'✗ Not all Item #7 qualifiers met'}</strong>${!item7?' — requires: L/O hazard, no FL/CL, adequate sprinklers, multiple risers, central station/24hr, fully paid prompt FD':''}</div>`:''}</div>
+  <div class="cd" style="background:var(--ibg);margin:8px 0;padding:10px;border-radius:6px;border:1px solid var(--border)"><h4 style="margin:0 0 6px 0;font-size:11px;color:var(--accent)">Item #5 — 2-Hour Fire Wall / Building Separation</h4>
+  <div class="note" style="margin-bottom:6px">For NC/FR construction with a fully paid, prompt FD: credit a NFPA 221 / FMDS 1-21 qualifying fire wall (2 hours+, no large unprotected openings) or adequate building separation to limit the PML fire area.</div>
+  <div class="tgr">${tog("Credit 2-hour+ qualifying fire wall (PML)","pmlFW2hr")}</div>
+  ${S.pmlFW2hr?fd("Area on origin side of fire wall ("+aU()+")",inp("pmlFWArea","","number")):''}
+  ${item5Active?`<div style="margin-top:4px;font-size:10px;color:var(--suc)"><strong>✓ Item #5 fire wall credited — PML fire area limited to ${fN(pf(S.pmlFWArea))} ${aU()}</strong></div>`:''}
+  ${S.pmlFW2hr&&(!isNCFR||!goodFD)?`<div style="margin-top:4px;font-size:10px;color:var(--wrn)"><strong>✗ Item #5 requires noncombustible/fire resistive construction and fully paid prompt FD</strong></div>`:''}</div>
+  <div style="background:var(--ibg);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;font-size:11px;color:var(--text)">
+    <strong style="color:var(--accent)">PML Fire Area: ${fN(Math.round(usedA))} ${aU()}</strong>
+    <span style="color:var(--muted);margin-left:6px">${faReason}</span>
+  </div></div>
   <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">PML Results</h3>${pml.eq?'<span class="bdg bdg-d">PML = MFL</span>':''}${pml.aplFloor?'<span class="bdg bdg-w" style="margin-left:4px">PML >= APL</span>':''}</div>
   <div class="g3" style="margin-bottom:6px">${vc("Building",fmt(pml.pB))}${vc("Equipment",fmt(pml.pE))}${vc("Inv/WIP",fmt(pml.pI))}</div>
   <div class="g2">${vc("Total PML PD",fmt(pml.pT),"","dng")}${vc("BI",pml.biM+" months",v.by>0?fmtF(pml.bV):"","wrn")}</div>
@@ -854,6 +949,7 @@ function rRev(){
   <table style="width:100%;border-collapse:collapse;font-size:12px">
   <thead><tr style="border-bottom:2px solid var(--border)"><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Rev</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Date</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Author</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Status</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Description</th></tr></thead>
   <tbody>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.13</td><td style="padding:8px">03/23/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Implemented FP 5020 Items #5, #6, and #7 for PML fire area determination. Item #7: for light and ordinary hazard occupancies without FL/CL, with adequately designed sprinklers, multiple sprinkler systems, central station supervision or 24-hour occupancy, and a fully paid quick-responding FD, fire area may be limited to sprinkler system size plus 50% (design area × 1.5). Item #6: for extra hazard and storage occupancies without FL/CL, with NC/FR construction and a fully paid FD, fire area may only be limited per Item #5. Item #5: credits NC/FR construction with a NFPA 221/FMDS 1-21 qualifying 2-hour+ fire wall (no large unprotected openings) to limit PML fire area. Added PML Configuration UI toggles for multiple risers/systems, central station/24-hour occupancy, and 2-hour fire wall with area input. PML narrative updated to reference governing item and qualifier status. 249 tests passing.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.12</td><td style="padding:8px">03/23/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Rounding changed from tiered ($1K under $100K / $100K over $100K) to uniform $10,000 rounding. Zone-level damages (fire, water, smoke × building, equipment, inventory) are now each rounded to the nearest $10,000 individually; category totals (pB, pE, pI) and grand totals (pT) are straight additions of the rounded zone values with no additional rounding. Custom per-building value distribution: added optional "Custom Value Weighting" toggle on the Values tab. When enabled, each building can have independent percentages for Building, Equipment, and Inventory value categories (e.g., warehouse gets 60% of building value but 90% of inventory, office gets 40% of building but 10% of inventory). Each category's percentages should independently sum to 100%. The resulting $/sqft per building derives naturally from the percentage allocation and each building's area. Default behavior (off) remains area-proportional distribution. Value overrides on MFL tab still take precedence. 247 tests passing.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.11</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Added APL damage percentage manual override on the APL tab, allowing engineers to adjust Table 1A damage percentages (building, equipment, inventory) for each zone (fire, water, smoke). Each percentage &lt; 100% shows an input field with the Table 1A default as placeholder and the typical range noted alongside. Overrides are scenario-specific and persist across tab switches. Adjusted values carry through to PML zone-based calculations. Narratives annotate adjusted values with "(adjusted)". Reset button restores Table 1A defaults. Removed high-rise module (Figure 2, Table 2, FMDS 1-3 exterior fire spread, floor-by-floor MFL) from automated calculations — high-rise tab now displays a note directing engineers to perform high-rise loss estimates manually. Implemented FP 5020 Table 5 (Maximum % Building Damage that Defaults to Full Structure Loss): if Table 4 building damage percentage meets or exceeds the Table 5 condemnation threshold (based on building area and construction type), building damage defaults to 100% (full structure loss). Equipment and inventory remain at Table 4 percentages. Condemnation check shown in MFL narrative and results badge. Floor count field retained on Site Info for multi-story non-high-rise buildings.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.10</td><td style="padding:8px">03/20/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Unified PML logic: scenario-based 100% damage zones now apply for ALL APL=PML triggers (&lt;80% of design, FL/CL present, Table 1B deficiencies) — not only the deficient+inadequate alarms case. Previously these cases fell through to the broken Table 4 proportional fallback, producing PML values lower than APL. Now any apl.eq=true condition routes to Step 2: hypothetical APL scenario zone ratios scaled to design area × 1.5 with 100% damage throughout, capped at MFL. For &lt;80% design triggers, the boundary scenario (G for storage, E/F for non-storage, fire area = design area) is used so the PML scale factor stays near 1.5x — preventing the artificial spike that occurred when the fully-adequate scenario's small fixed fire area (e.g., 500 sqft for ESFR/Scenario H) created a 6x scale factor at 79% vs 1.5x at 80%. Additionally, inadequate alarms/FD/PEO (alarmsOk=false) now triggers Step 1 PML=MFL (delayed response); PML tab FD Response selector auto-locks to "Delayed" when alarmsOk=false. FL/CL toggle label updated to include "Flammable/Combustible Liquids" explicitly. Test suite updated and expanded to 242 passing tests.</td></tr>
