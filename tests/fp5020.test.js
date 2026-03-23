@@ -46,7 +46,7 @@ let S;
 function resetS() {
   S = {
     tab:0, siteName:"", accountNo:"", surveyDate:"", currency:"", units:"imperial",
-    buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:""}],
+    buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",valuePct:""}],
     primaryIdx:0,
     hazardClass:"ordinary", isStorage:true, isSensitive:false,
     sprinklerType:"wet", sprinklerAdequate:"adequate", designPct:"100",
@@ -55,6 +55,7 @@ function resetS() {
     defV:"none", defOE:"none", defOC:"none",
     totalBldg:"", totalEquip:"", totalInv:"", biYearly:"", biMode:"dollar",
     annualProd:"", biPct:"",
+    valueDist:"area",
     pmlSystem:"sprinkler_riser", fdTime:"prompt", fdType:"fullypaid", pmlArea:"",
     hasCombConst:false,
     fw4hr:false, fwArea:"",
@@ -73,7 +74,7 @@ function fN(v){return v.toLocaleString()}
 function toFt(v){return S.units==="metric"?v/0.3048:v}
 function fromFt(v){return S.units==="metric"?Math.round(v*0.3048):v}
 function defDA(){return S.units==="metric"?140:1500}
-function rLE(v){if(v<100000)return Math.round(v/1000)*1000;return Math.round(v/100000)*100000}
+function rLE(v){return Math.round(v/10000)*10000}
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function pct(v){return(v*100).toFixed(0)+"%"}
 
@@ -87,14 +88,17 @@ function primaryOcc(){return pb().occupancy||"Warehousing"}
 function bldgValue(i){
   const b=S.buildings[i],ov=pf(b.value);
   if(ov>0)return ov;
-  const ts=totalSqft(),ba=pf(b.area),tv=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);
+  const tv=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);
+  if(S.valueDist==="custom"&&pf(b.valuePct)>0)return tv*(pf(b.valuePct)/100);
+  const ts=totalSqft(),ba=pf(b.area);
   return ts>0?tv*(ba/ts):0;
 }
 
 function gv(){
   const a=primaryArea();
   const siteTb=pf(S.totalBldg),siteTe=pf(S.totalEquip),siteTi=pf(S.totalInv),sitePD=siteTb+siteTe+siteTi;
-  const prop=sitePD>0?bldgValue(S.primaryIdx)/sitePD:1;
+  const bv=bldgValue(S.primaryIdx);
+  const prop=sitePD>0?bv/sitePD:1;
   const tb=siteTb*prop,te=siteTe*prop,ti=siteTi*prop;
   let by=pf(S.biYearly);if(S.biMode==="percent"&&pf(S.annualProd)>0&&pf(S.biPct)>0)by=pf(S.annualProd)*(pf(S.biPct)/100);
   return{a,tb,te,ti,by,bpsf:a>0?tb/a:0,epsf:a>0?te/a:0,ipsf:a>0?ti/a:0,pd:tb+te+ti};
@@ -143,8 +147,8 @@ function calcAPL(){
   let pB=0,pE=0,pI=0,bi="";
   if(sc&&APL_SC[sc]&&v.a>0){const s=APL_SC[sc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;bi=s.bi;
     const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(pf(S.designArea)||defDA(),v.a);if(x==="2x")return Math.min((pf(S.designArea)||defDA())*2,v.a);if(x==="5x")return Math.min((pf(S.designArea)||defDA())*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
-    ["fire","water","smoke"].forEach(t=>{const d=sys[t],ar=rA(d.a);pB+=(v.tb/v.a)*d.b*ar;pE+=(v.te/v.a)*d.e*ar;pI+=(v.ti/v.a)*d.i*ar;});}
-  return{sc,eq,R,pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT:rLE(pB+pE+pI),bi};
+    ["fire","water","smoke"].forEach(t=>{const d=sys[t],ar=rA(d.a);pB+=rLE((v.tb/v.a)*d.b*ar);pE+=rLE((v.te/v.a)*d.e*ar);pI+=rLE((v.ti/v.a)*d.i*ar);});}
+  return{sc,eq,R,pB,pE,pI,pT:pB+pE+pI,bi};
 }
 
 // MFL calculation
@@ -228,10 +232,10 @@ function calcPML(){
       let pmlFA=pf(S.pmlArea);if(pmlFA<=0)pmlFA=designA*1.5;pmlFA=Math.min(pmlFA,v.a);
       const sf=aplFireA>0?pmlFA/aplFireA:1;
       let pB=0,pE=0,pI=0,zones=[];
-      ["fire","water","smoke"].forEach(t=>{const zd=sys[t];const aplZA=rA(zd.a);const pmlZA=Math.min(Math.round(aplZA*sf),v.a);const bD=(v.tb/v.a)*pmlZA,eD=(v.te/v.a)*pmlZA,iD=(v.ti/v.a)*pmlZA;pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:aplZA,pmlA:pmlZA,bPct:100,ePct:100,iPct:100,bD:rLE(bD),eD:rLE(eD),iD:rLE(iD)});});
+      ["fire","water","smoke"].forEach(t=>{const zd=sys[t];const aplZA=rA(zd.a);const pmlZA=Math.min(Math.round(aplZA*sf),v.a);const bD=rLE((v.tb/v.a)*pmlZA),eD=rLE((v.te/v.a)*pmlZA),iD=rLE((v.ti/v.a)*pmlZA);pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:aplZA,pmlA:pmlZA,bPct:100,ePct:100,iPct:100,bD,eD,iD});});
       pB=Math.min(pB,v.tb);pE=Math.min(pE,v.te);pI=Math.min(pI,v.ti);
-      let pT=rLE(pB+pE+pI);const mflCap=pT>mfl.pT;if(mflCap)pT=mfl.pT;
-      return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT,eq:true,rsn:`${aplEqRsn}: PML fire area modeled at 100% damage using hypothetical Scenario ${hSc} zone ratios scaled to design area × 1.5`,pmlFA,hypDesignA:designA,pmlAreaOverride:pf(S.pmlArea)>0,zones,hypSc:hSc,aplEqRsn,bP:100,eP:100,iP:100,mflCap};}
+      let pT=pB+pE+pI;const mflCap=pT>mfl.pT;if(mflCap)pT=mfl.pT;
+      return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB,pE,pI,pT,eq:true,rsn:`${aplEqRsn}: PML fire area modeled at 100% damage using hypothetical Scenario ${hSc} zone ratios scaled to design area × 1.5`,pmlFA,hypDesignA:designA,pmlAreaOverride:pf(S.pmlArea)>0,zones,hypSc:hSc,aplEqRsn,bP:100,eP:100,iP:100,mflCap};}
     return{...mfl,eq:true,rsn:`${aplEqRsn}: no adequate protection scenario available, so PML = MFL`,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   const o=MFL_T[primaryOcc()];if(!o||v.a===0)return{pB:0,pE:0,pI:0,pT:0,biM:0,eq:false,zones:[]};
   const d=o[primaryConst()]||o.comb,designA=pf(S.designArea)||defDA();
@@ -241,11 +245,11 @@ function calcPML(){
     const aplFA=(x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0})(sys.fire.a);
     const sf=aplFA>0?pmlFA/aplFA:1;
     ["fire","water","smoke"].forEach(t=>{const zd=sys[t];const azA=(x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0})(zd.a);
-      const pzA=Math.min(Math.round(azA*sf),v.a);const bD=(v.tb/v.a)*zd.b*pzA,eD=(v.te/v.a)*zd.e*pzA,iD=(v.ti/v.a)*zd.i*pzA;
-      pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:azA,pmlA:pzA,bPct:zd.b,ePct:zd.e,iPct:zd.i,bD:rLE(bD),eD:rLE(eD),iD:rLE(iD)});});}
-  else{const r=v.a>0?pmlFA/v.a:1;pB=v.tb*(d.b/100)*r;pE=v.te*(d.e/100)*r;pI=v.ti*(d.i/100)*r;}
-  let pT=rLE(pB+pE+pI),aplFloor=false;if(pT<apl.pT){aplFloor=true;pT=apl.pT;}
-  return{biM:d.bi,pB:rLE(pB),pE:rLE(pE),pI:rLE(pI),pT,bV:rLE(v.by/12*d.bi),eq:false,rsn:"",aplFloor,pmlFA,zones,bP:d.b,eP:d.e,iP:d.i};
+      const pzA=Math.min(Math.round(azA*sf),v.a);const bD=rLE((v.tb/v.a)*zd.b*pzA),eD=rLE((v.te/v.a)*zd.e*pzA),iD=rLE((v.ti/v.a)*zd.i*pzA);
+      pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:azA,pmlA:pzA,bPct:zd.b,ePct:zd.e,iPct:zd.i,bD,eD,iD});});}
+  else{const r=v.a>0?pmlFA/v.a:1;pB=rLE(v.tb*(d.b/100)*r);pE=rLE(v.te*(d.e/100)*r);pI=rLE(v.ti*(d.i/100)*r);}
+  let pT=pB+pE+pI,aplFloor=false;if(pT<apl.pT){aplFloor=true;pT=apl.pT;}
+  return{biM:d.bi,pB,pE,pI,pT,bV:rLE(v.by/12*d.bi),eq:false,rsn:"",aplFloor,pmlFA,zones,bP:d.b,eP:d.e,iP:d.i};
 }
 
 // High rise helpers
@@ -324,22 +328,25 @@ describe('fmtF() - full formatter', () => {
 
 // --------------- rLE() ---------------
 describe('rLE() - loss rounding', () => {
-  test('rounds to nearest $1,000 for values under $100,000', () => {
-    expect(rLE(1500)).toBe(2000);
-    expect(rLE(999)).toBe(1000);
+  test('rounds to nearest $10,000', () => {
+    expect(rLE(1500)).toBe(0);
+    expect(rLE(5000)).toBe(10000);
+    expect(rLE(15000)).toBe(20000);
     expect(rLE(50000)).toBe(50000);
-    expect(rLE(74999)).toBe(75000);
+    expect(rLE(74999)).toBe(70000);
+    expect(rLE(75000)).toBe(80000);
   });
-  test('rounds to nearest $100,000 for values >= $100,000', () => {
+  test('rounds to nearest $10,000 for larger values', () => {
     expect(rLE(100000)).toBe(100000);
-    expect(rLE(150000)).toBe(200000);
-    expect(rLE(1250000)).toBe(1300000);
+    expect(rLE(150000)).toBe(150000);
+    expect(rLE(1250000)).toBe(1250000);
+    expect(rLE(1255000)).toBe(1260000);
   });
   test('handles zero', () => {
     expect(rLE(0)).toBe(0);
   });
-  test('small values below 500 round to 0', () => {
-    expect(rLE(499)).toBe(0);
+  test('small values below 5000 round to 0', () => {
+    expect(rLE(4999)).toBe(0);
   });
 });
 
@@ -1733,23 +1740,91 @@ describe('gv() - multi-building proportional distribution', () => {
   });
 });
 
+// --------------- Custom value distribution ---------------
+describe('bldgValue() - custom value distribution', () => {
+  test('default area mode: value proportional to sqft', () => {
+    S.buildings = [
+      {name:'Warehouse', area:'80000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', valuePct:''},
+      {name:'Office', area:'20000', construction:'hnc', occupancy:'Office', value:'', separation:'', floors:'', valuePct:''},
+    ];
+    S.totalBldg = '8000000'; S.totalEquip = '2000000'; S.totalInv = '0';
+    // Warehouse: 80% of area → 80% of $10M = $8M
+    expect(bldgValue(0)).toBeCloseTo(8000000, -3);
+    // Office: 20% of area → 20% of $10M = $2M
+    expect(bldgValue(1)).toBeCloseTo(2000000, -3);
+  });
+
+  test('custom mode: value based on valuePct', () => {
+    S.valueDist = 'custom';
+    S.buildings = [
+      {name:'Warehouse', area:'80000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', valuePct:'90'},
+      {name:'Office', area:'20000', construction:'hnc', occupancy:'Office', value:'', separation:'', floors:'', valuePct:'10'},
+    ];
+    S.totalBldg = '8000000'; S.totalEquip = '2000000'; S.totalInv = '0';
+    // Warehouse: 90% of $10M = $9M
+    expect(bldgValue(0)).toBeCloseTo(9000000, -3);
+    // Office: 10% of $10M = $1M
+    expect(bldgValue(1)).toBeCloseTo(1000000, -3);
+  });
+
+  test('custom mode: different $/sqft per building', () => {
+    S.valueDist = 'custom';
+    S.buildings = [
+      {name:'Warehouse', area:'80000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', valuePct:'90'},
+      {name:'Office', area:'20000', construction:'hnc', occupancy:'Office', value:'', separation:'', floors:'', valuePct:'10'},
+    ];
+    S.primaryIdx = 0;
+    S.totalBldg = '8000000'; S.totalEquip = '2000000'; S.totalInv = '0';
+    const v = gv();
+    // Warehouse $/sqft = 9M / 80000 = $112.50/sqft
+    expect(v.bpsf + v.epsf + v.ipsf).toBeCloseTo(9000000 / 80000, 0);
+  });
+
+  test('custom mode: empty valuePct falls back to area proportion', () => {
+    S.valueDist = 'custom';
+    S.buildings = [
+      {name:'A', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', valuePct:''},
+      {name:'B', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'', valuePct:''},
+    ];
+    S.totalBldg = '10000000'; S.totalEquip = '0'; S.totalInv = '0';
+    // Both empty valuePct → falls back to area proportion (50/50)
+    expect(bldgValue(0)).toBeCloseTo(5000000, -3);
+    expect(bldgValue(1)).toBeCloseTo(5000000, -3);
+  });
+
+  test('value override takes precedence over custom distribution', () => {
+    S.valueDist = 'custom';
+    S.buildings = [
+      {name:'A', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'3000000', separation:'', floors:'', valuePct:'70'},
+    ];
+    S.totalBldg = '10000000'; S.totalEquip = '0'; S.totalInv = '0';
+    // value override (3M) wins over valuePct (70% = 7M)
+    expect(bldgValue(0)).toBe(3000000);
+  });
+});
+
 // --------------- rLE() boundary cases ---------------
-describe('rLE() - boundary edge cases', () => {
-  test('exactly 100000 rounds to nearest 100k', () => {
+describe('rLE() - rounds to nearest $10,000', () => {
+  test('exactly 100000 stays 100000', () => {
     expect(rLE(100000)).toBe(100000);
   });
-  test('99999 rounds to nearest 1k', () => {
+  test('values round to nearest 10k', () => {
     expect(rLE(99999)).toBe(100000);
+    expect(rLE(95000)).toBe(100000);
+    expect(rLE(94999)).toBe(90000);
+    expect(rLE(45000)).toBe(50000);
+    expect(rLE(44999)).toBe(40000);
+    expect(rLE(5000)).toBe(10000);
+    expect(rLE(4999)).toBe(0);
   });
-  test('large values round to nearest 100k', () => {
-    expect(rLE(1234567)).toBe(1200000);
-    expect(rLE(9876543)).toBe(9900000);
+  test('large values round to nearest 10k', () => {
+    expect(rLE(1234567)).toBe(1230000);
+    expect(rLE(9876543)).toBe(9880000);
   });
-  test('negative values return 0 or -0 (losses are non-negative)', () => {
-    // rLE(-500) = Math.round(-500/1000)*1000 = Math.round(-0.5)*1000 = -0
-    // In practice losses are never negative; treat as zero
-    expect(rLE(-500)).toBe(-0);
+  test('negative values round towards zero', () => {
+    // Math.round(-0.05) returns -0 in JS; rLE(-500) = -0
     expect(Object.is(rLE(-500), 0) || Object.is(rLE(-500), -0)).toBe(true);
+    expect(Object.is(rLE(-5000), 0) || Object.is(rLE(-5000), -0)).toBe(true);
   });
 });
 
