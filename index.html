@@ -168,6 +168,7 @@ const S={
   multipleRisers:false,centralStation:false,
   // PML fire wall (2-hour+ per item #5)
   pmlFW2hr:false,pmlFWArea:"",
+  pmlExpSep:false,pmlBldgHeight:"",
   // MFL
   fw4hr:false,fwArea:"",
   // High rise (deprecated — kept for saved-state compat, no longer used in calculations)
@@ -362,6 +363,19 @@ function pmlItem5Active(){
   const goodFD=S.fdType==="fullypaid"&&S.fdTime==="prompt";
   return isNCFR&&goodFD&&S.pmlFW2hr&&pf(S.pmlFWArea)>0;
 }
+function pmlExpSepInfo(){
+  const goodFD=S.fdType==="fullypaid"&&S.fdTime==="prompt";
+  if(!S.pmlExpSep||!goodFD)return{active:false};
+  const h=pf(S.pmlBldgHeight);
+  if(h<=0)return{active:false,reason:"building height required"};
+  let nearest=null;
+  S.buildings.forEach((b,i)=>{if(i===S.primaryIdx)return;const d=pf(b.separation);if(d>0&&(!nearest||d<nearest.dist))nearest={idx:i,dist:d,construction:b.construction||primaryConst(),name:b.name||("Building "+(i+1))};});
+  if(!nearest)return{active:false,reason:"no adjacent buildings with separation distances"};
+  const t3a=getSepReq(primaryConst(),nearest.construction,S.hazardClass);
+  const reqDist=Math.max(h*1.5,t3a/2);
+  const ok=nearest.dist>=reqDist;
+  return{active:ok,nearest,reqDist,t3aDist:t3a,heightReq:h*1.5,halfT3a:t3a/2,actualDist:nearest.dist,reason:ok?null:"separation "+nearest.dist+" "+dU()+" < required "+Math.ceil(reqDist)+" "+dU()};
+}
 function pmlItem7Qualifies(){
   const isLO=(S.hazardClass==="light"||S.hazardClass==="ordinary")&&!S.isStorage;
   return isLO&&!S.hasFL&&S.sprinklerAdequate==="adequate"&&S.multipleRisers&&S.centralStation&&S.fdType==="fullypaid"&&S.fdTime==="prompt";
@@ -384,6 +398,13 @@ function calcPML(){
       const pB=rLE(mfl.pB*r),pE=rLE(mfl.pE*r),pI=rLE(mfl.pI*r);
       let pT=pB+pE+pI;if(pT<apl.pT){pT=apl.pT;}
       return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB,pE,pI,pT,eq:false,rsn:"Item #5: 2-hour fire wall limits PML fire area for extra hazard/storage",aplFloor:pT===apl.pT&&pB+pE+pI<apl.pT,pmlFA:fwA,zones:[],bP:mfl.bP,eP:mfl.eP,iP:mfl.iP,item5Limited:true};}
+    // Exposure separation — FD credited to stop fire spread, PML limited to primary building
+    const expSep=pmlExpSepInfo();
+    if(expSep.active){
+      const primaryFrac=mfl.sitePD>0?bldgValue(S.primaryIdx)/mfl.sitePD:1;
+      const pB=rLE(mfl.pB*primaryFrac),pE=rLE(mfl.pE*primaryFrac),pI=rLE(mfl.pI*primaryFrac);
+      let pT=pB+pE+pI;if(pT<apl.pT){pT=apl.pT;}
+      return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB,pE,pI,pT,eq:false,rsn:"Exposure separation credited: FD can stop fire spread to "+expSep.nearest.name+" ("+Math.ceil(expSep.actualDist)+" "+dU()+" \u2265 required "+Math.ceil(expSep.reqDist)+" "+dU()+")",aplFloor:pT===apl.pT&&pB+pE+pI<apl.pT,pmlFA:v.a,zones:[],bP:mfl.bP,eP:mfl.eP,iP:mfl.iP,expSepLimited:true};}
     const rsn="Extra hazard/storage occupancy: PML = MFL per Item #6 (no Item #5 fire wall credited)";
     return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   // Step 1c: L/O hazard without Item #7 qualifiers → PML = MFL
@@ -842,6 +863,7 @@ function r3(){
   let usedA,faReason;
   if(pml.eq&&!pml.item5Limited){usedA=v.a||0;faReason="(PML = MFL)";}
   else if(pml.item5Limited){usedA=pml.pmlFA;faReason=`(Item #5: fire wall limits to ${fN(pf(S.pmlFWArea))} ${aU()})`;}
+  else if(pml.expSepLimited){usedA=v.a||0;faReason="(exposure separation — PML limited to primary building)";}
   else if(pf(S.pmlArea)>0){usedA=pml.pmlFA;faReason="(override)";}
   else if(item7&&item5){usedA=pml.pmlFA;faReason=`(Item #7: design area × 1.5 = ${fN(Math.round(dA*1.5))} ${aU()}, limited by Item #5 fire wall to ${fN(pf(S.pmlFWArea))} ${aU()})`;}
   else if(item7){usedA=pml.pmlFA;faReason=`(Item #7: design area ${fN(dA)} ${aU()} × 1.5)`;}
@@ -863,11 +885,17 @@ function r3(){
   ${S.pmlFW2hr?fd("Area on origin side of fire wall ("+aU()+")",inp("pmlFWArea","","number")):''}
   ${item5?`<div style="margin-top:4px;font-size:10px;color:var(--suc)"><strong>✓ Item #5 fire wall credited — PML fire area limited to ${fN(pf(S.pmlFWArea))} ${aU()}</strong></div>`:''}
   ${S.pmlFW2hr&&(!isNCFR||!goodFD)?`<div style="margin-top:4px;font-size:10px;color:var(--wrn)"><strong>✗ Item #5 requires noncombustible/fire resistive construction and fully paid prompt FD</strong></div>`:''}</div>
+  ${!isLO?`<div class="cd" style="background:var(--ibg);margin:8px 0;padding:10px;border-radius:6px;border:1px solid var(--border)"><h4 style="margin:0 0 6px 0;font-size:11px;color:var(--accent)">Exposure Separation — FD Credit (Extra Hazard / Storage)</h4>
+  <div class="note" style="margin-bottom:6px">If the nearest building has adequate separation (the larger of 150% of building height or half the Table 3a distance), the FD is credited with stopping fire spread. PML is limited to the primary building.${item5?' Item #5 fire wall takes priority when active.':''}</div>
+  <div class="tgr">${tog("Credit FD exposure separation","pmlExpSep")}</div>
+  ${S.pmlExpSep?fd("Primary Building Height ("+dU()+")",inp("pmlBldgHeight","","number")):''}
+  ${(()=>{const ei=pmlExpSepInfo();return S.pmlExpSep?(ei.active?'<div style="margin-top:4px;font-size:10px;color:var(--suc)"><strong>✓ Separation adequate — '+Math.ceil(ei.actualDist)+' '+dU()+' ≥ required '+Math.ceil(ei.reqDist)+' '+dU()+' (150% height = '+Math.ceil(ei.heightReq)+', 50% Table 3a = '+Math.ceil(ei.halfT3a)+')</strong></div>':'<div style="margin-top:4px;font-size:10px;color:var(--wrn)"><strong>✗ '+(ei.reason||'Separation not adequate')+'</strong>'+((!goodFD&&S.pmlExpSep)?' (requires fully paid prompt FD)':'')+'</div>'):'';})()}
+  </div>`:''}
   <div style="background:var(--ibg);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:10px;font-size:11px;color:var(--text)">
     <strong style="color:var(--accent)">PML Fire Area: ${fN(Math.round(usedA))} ${aU()}</strong>
     <span style="color:var(--muted);margin-left:6px">${faReason}</span>
   </div></div>
-  <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">PML Results</h3>${pml.eq?'<span class="bdg bdg-d">PML = MFL</span>':''}${pml.item5Limited?'<span class="bdg bdg-s" style="margin-left:4px">Item #5 Limited</span>':''}${pml.aplFloor?'<span class="bdg bdg-w" style="margin-left:4px">PML >= APL</span>':''}</div>
+  <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">PML Results</h3>${pml.eq?'<span class="bdg bdg-d">PML = MFL</span>':''}${pml.item5Limited?'<span class="bdg bdg-s" style="margin-left:4px">Item #5 Limited</span>':''}${pml.expSepLimited?'<span class="bdg bdg-s" style="margin-left:4px">Exposure Sep.</span>':''}${pml.aplFloor?'<span class="bdg bdg-w" style="margin-left:4px">PML >= APL</span>':''}</div>
   <div class="g3" style="margin-bottom:6px">${vc("Building",fmt(pml.pB))}${vc("Equipment",fmt(pml.pE))}${vc("Inv/WIP",fmt(pml.pI))}</div>
   <div class="g2">${vc("Total PML PD",fmt(pml.pT),"","dng")}${vc("BI",pml.biM+" months",v.by>0?fmtF(pml.bV):"","wrn")}</div>
   <div class="note" style="margin-top:4px">BI duration is engineering discretion — FP 5020 provides no PML-specific guidance. Duration should be no less than the APL BI${apl.bi?` (${apl.bi}, Scenario ${apl.sc})`:""}.${!pml.eq?" The value shown is drawn from Table 4 as a starting point only.":""}</div></div>
