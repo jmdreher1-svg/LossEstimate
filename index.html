@@ -363,14 +363,14 @@ function pmlItem5Active(){
   return isNCFR&&goodFD&&S.pmlFW2hr&&pf(S.pmlFWArea)>0;
 }
 function pmlItem7Qualifies(){
-  const isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";
+  const isLO=(S.hazardClass==="light"||S.hazardClass==="ordinary")&&!S.isStorage;
   return isLO&&!S.hasFL&&S.sprinklerAdequate==="adequate"&&S.multipleRisers&&S.centralStation&&S.fdType==="fullypaid"&&S.fdTime==="prompt";
 }
 
 // PML
 function calcPML(){
   const v=gv(),mfl=calcMFL(),apl=calcAPL();
-  const isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";
+  const isLO=(S.hazardClass==="light"||S.hazardClass==="ordinary")&&!S.isStorage;
   // Step 1: Hard PML=MFL — inadequate alarms, delayed FD, combustible construction, or no sprinklers
   if(!S.alarmsOk||S.fdTime==="delayed"||primaryConst()==="comb"||S.hasCombConst||S.sprinklerAdequate==="none"){
     const rsn=!S.alarmsOk?"Inadequate alarms/FD notification implies delayed emergency response, so PML = MFL":S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":S.sprinklerAdequate==="none"?"No automatic sprinkler protection, so PML = MFL":"Combustible construction, so PML = MFL";
@@ -833,7 +833,7 @@ function r2(){
 
 function r3(){
   const pml=calcPML(),apl=calcAPL(),v=gv(),dA=pf(S.designArea)||defDA();
-  const isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";
+  const isLO=(S.hazardClass==="light"||S.hazardClass==="ordinary")&&!S.isStorage;
   const item7=pmlItem7Qualifies();
   const item5=pmlItem5Active();
   const isNCFR=primaryConst()==="fr"||primaryConst()==="hnc"||primaryConst()==="lnc";

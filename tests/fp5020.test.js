@@ -229,12 +229,12 @@ function pmlItem5Active(){
   return isNCFR&&goodFD&&S.pmlFW2hr&&pf(S.pmlFWArea)>0;
 }
 function pmlItem7Qualifies(){
-  const isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";
+  const isLO=(S.hazardClass==="light"||S.hazardClass==="ordinary")&&!S.isStorage;
   return isLO&&!S.hasFL&&S.sprinklerAdequate==="adequate"&&S.multipleRisers&&S.centralStation&&S.fdType==="fullypaid"&&S.fdTime==="prompt";
 }
 function calcPML(){
   const v=gv(),mfl=calcMFL(),apl=calcAPL();
-  const isLO=S.hazardClass==="light"||S.hazardClass==="ordinary";
+  const isLO=(S.hazardClass==="light"||S.hazardClass==="ordinary")&&!S.isStorage;
   if(!S.alarmsOk||S.fdTime==="delayed"||primaryConst()==="comb"||S.hasCombConst||S.sprinklerAdequate==="none"){
     const rsn=!S.alarmsOk?"Inadequate alarms/FD notification implies delayed emergency response, so PML = MFL":S.fdTime==="delayed"?"Fire department response exceeds 40 minutes, so PML = MFL":S.sprinklerAdequate==="none"?"No automatic sprinkler protection, so PML = MFL":"Combustible construction, so PML = MFL";
     return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
@@ -2178,6 +2178,31 @@ describe('PML: Items #5, #6, #7 fire area logic', () => {
     S.designArea = '2000';
     const pml = calcPML();
     expect(pml.pT).toBeLessThanOrEqual(calcMFL().pT);
+  });
+
+  test('Storage occupancy with all Item #7 qualifiers → PML = MFL (Item #7 does not apply)', () => {
+    item7Setup();
+    S.isStorage = true; // storage overrides L/O for PML purposes
+    const pml = calcPML();
+    expect(pml.eq).toBe(true);
+    expect(pml.zones).toHaveLength(0);
+    expect(pml.rsn).toMatch(/extra hazard|storage/i);
+  });
+
+  test('pmlItem7Qualifies() returns false when isStorage=true', () => {
+    item7Setup();
+    S.isStorage = true;
+    expect(pmlItem7Qualifies()).toBe(false);
+  });
+
+  test('Storage occupancy with Item #5 fire wall → PML limited by fire wall, not Item #7', () => {
+    item7Setup();
+    S.isStorage = true;
+    S.pmlFW2hr = true; S.pmlFWArea = '40000';
+    const pml = calcPML();
+    expect(pml.item5Limited).toBe(true);
+    expect(pml.eq).toBe(false);
+    expect(pml.rsn).toMatch(/Item #5/);
   });
 });
 
