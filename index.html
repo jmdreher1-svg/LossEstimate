@@ -716,7 +716,7 @@ function r0(){
   <div style="margin-top:10px;font-size:11px;color:var(--muted)">Primary fire area: <strong style="color:var(--accent)">${pb().name||"Building "+(S.primaryIdx+1)}</strong> (${fN(primaryArea())} ${aU()}, ${CL[primaryConst()]||""}) | Total site: ${fN(totalSqft())} ${aU()}</div>
   </div>
   <div class="cd"><h3 class="ct">Primary Building Protection</h3>
-  ${S.isStorage?fd("NFPA Hazard Classification",'<select disabled><option selected>Extra Hazard (storage)</option></select>'):sel("hazardClass",[["light","Light Hazard"],["ordinary","Ordinary Hazard"],["extra","Extra Hazard"]])}
+  ${S.isStorage?fd("NFPA Hazard Classification",'<select disabled><option selected>Extra Hazard (storage)</option></select>'):fd("NFPA Hazard Classification",sel("hazardClass",[["light","Light Hazard"],["ordinary","Ordinary Hazard"],["extra","Extra Hazard"]]))}
   <div class="tgr" style="margin-bottom:10px">${tog("Storage Occupancy","isStorage")}${tog("Sensitive Occupancy","isSensitive")}</div>
   ${S.isStorage?'<div class="note" style="margin-bottom:8px">Storage occupancy selected — hazard class locked to Extra Hazard per FP 5020 (Items #5–#7). Occupancy list filtered to storage types.</div>':''}
   <div class="g2">${fd("Sprinkler Type",sel("sprinklerType",[["wet","Wet Pipe"],["dry","Dry Pipe"]]))}${fd("Adequacy",sel("sprinklerAdequate",[["adequate","Reliable & Fully Adequate"],["deficient","Not Fully Adequate"],["none","No Sprinkler Protection"]]))}</div>
