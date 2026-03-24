@@ -60,6 +60,7 @@ function resetS() {
     hasCombConst:false,
     multipleRisers:false, centralStation:false,
     pmlFW2hr:false, pmlFWArea:"",
+    pmlExpSep:false, pmlBldgHeight:"",
     fw4hr:false, fwArea:"",
     isHighRise:false, stories:"", hrFireFloors:"1", topFloorBelowFD:true, extSpreadPossible:false,
     extType:"none", floorToWindow:"", windowHeight:"",
@@ -75,6 +76,7 @@ function fmtF(v){const c=cs();if(!v||isNaN(v))return c+"0";return c+Math.round(v
 function fN(v){return v.toLocaleString()}
 function toFt(v){return S.units==="metric"?v/0.3048:v}
 function fromFt(v){return S.units==="metric"?Math.round(v*0.3048):v}
+function dU(){return S.units==="metric"?"m":"ft"}
 function defDA(){return S.units==="metric"?140:1500}
 function rLE(v){return Math.round(v/10000)*10000}
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
@@ -228,6 +230,19 @@ function pmlItem5Active(){
   const goodFD=S.fdType==="fullypaid"&&S.fdTime==="prompt";
   return isNCFR&&goodFD&&S.pmlFW2hr&&pf(S.pmlFWArea)>0;
 }
+function pmlExpSepInfo(){
+  const goodFD=S.fdType==="fullypaid"&&S.fdTime==="prompt";
+  if(!S.pmlExpSep||!goodFD)return{active:false};
+  const h=pf(S.pmlBldgHeight);
+  if(h<=0)return{active:false,reason:"building height required"};
+  let nearest=null;
+  S.buildings.forEach((b,i)=>{if(i===S.primaryIdx)return;const d=pf(b.separation);if(d>0&&(!nearest||d<nearest.dist))nearest={idx:i,dist:d,construction:b.construction||primaryConst(),name:b.name||("Building "+(i+1))};});
+  if(!nearest)return{active:false,reason:"no adjacent buildings with separation distances"};
+  const t3a=getSepReq(primaryConst(),nearest.construction,S.hazardClass);
+  const reqDist=Math.max(h*1.5,t3a/2);
+  const ok=nearest.dist>=reqDist;
+  return{active:ok,nearest,reqDist,t3aDist:t3a,heightReq:h*1.5,halfT3a:t3a/2,actualDist:nearest.dist,reason:ok?null:"separation "+nearest.dist+" "+dU()+" < required "+Math.ceil(reqDist)+" "+dU()};
+}
 function pmlItem7Qualifies(){
   const isLO=(S.hazardClass==="light"||S.hazardClass==="ordinary")&&!S.isStorage;
   return isLO&&!S.hasFL&&S.sprinklerAdequate==="adequate"&&S.multipleRisers&&S.centralStation&&S.fdType==="fullypaid"&&S.fdTime==="prompt";
@@ -245,6 +260,12 @@ function calcPML(){
       const pB=rLE(mfl.pB*r),pE=rLE(mfl.pE*r),pI=rLE(mfl.pI*r);
       let pT=pB+pE+pI;if(pT<apl.pT){pT=apl.pT;}
       return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB,pE,pI,pT,eq:false,rsn:"Item #5: 2-hour fire wall limits PML fire area for extra hazard/storage",aplFloor:pT===apl.pT&&pB+pE+pI<apl.pT,pmlFA:fwA,zones:[],bP:mfl.bP,eP:mfl.eP,iP:mfl.iP,item5Limited:true};}
+    const expSep=pmlExpSepInfo();
+    if(expSep.active){
+      const primaryFrac=mfl.sitePD>0?bldgValue(S.primaryIdx)/mfl.sitePD:1;
+      const pB=rLE(mfl.pB*primaryFrac),pE=rLE(mfl.pE*primaryFrac),pI=rLE(mfl.pI*primaryFrac);
+      let pT=pB+pE+pI;if(pT<apl.pT){pT=apl.pT;}
+      return{biM:mfl.biM,bV:rLE(v.by/12*mfl.biM),pB,pE,pI,pT,eq:false,rsn:"Exposure separation credited",aplFloor:pT===apl.pT&&pB+pE+pI<apl.pT,pmlFA:v.a,zones:[],bP:mfl.bP,eP:mfl.eP,iP:mfl.iP,expSepLimited:true};}
     const rsn="Extra hazard/storage occupancy: PML = MFL per Item #6 (no Item #5 fire wall credited)";
     return{...mfl,eq:true,rsn,pT:Math.max(mfl.pT,apl.pT),aplFloor:apl.pT>mfl.pT,zones:[]};}
   if(!pmlItem7Qualifies()){
@@ -2223,5 +2244,93 @@ describe('Integration: fire wall + multi-building separation', () => {
     expect(r.fwReduction).toBeGreaterThan(0);
     // Both exclusions should bring MFL well below sitePD
     expect(r.pT).toBeLessThan(r.sitePD * 0.7);
+  });
+
+  describe('PML exposure separation', () => {
+    function expSepSetup() {
+      S.buildings = [
+        { name: 'primary', area: '100000', construction: 'hnc', occupancy: 'Warehousing', value: '', separation: '', floors: '1', bldgPct: '', equipPct: '', invPct: '' },
+        { name: 'adjacent', area: '50000', construction: 'hnc', occupancy: 'Warehousing', value: '', separation: '200', floors: '1', bldgPct: '', equipPct: '', invPct: '' }
+      ];
+      S.primaryIdx = 0;
+      S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+      S.hazardClass = 'extra'; S.isStorage = false; S.isSensitive = false;
+      S.sprinklerAdequate = 'adequate'; S.alarmsOk = true;
+      S.fdTime = 'prompt'; S.fdType = 'fullypaid';
+      S.pmlExpSep = true; S.pmlBldgHeight = '40';
+      S.pmlFW2hr = false; S.pmlFWArea = '';
+      S.hasCombConst = false;
+    }
+
+    test('toggle off → PML = MFL for extra hazard', () => {
+      expSepSetup();
+      S.pmlExpSep = false;
+      const pml = calcPML();
+      expect(pml.eq).toBe(true);
+    });
+
+    test('adequate separation → PML < MFL (primary building only)', () => {
+      expSepSetup();
+      const mfl = calcMFL();
+      const pml = calcPML();
+      expect(pml.expSepLimited).toBe(true);
+      expect(pml.eq).toBe(false);
+      expect(pml.pT).toBeLessThan(mfl.pT);
+    });
+
+    test('inadequate separation → PML = MFL', () => {
+      expSepSetup();
+      S.buildings[1].separation = '10'; // too close
+      const pml = calcPML();
+      expect(pml.eq).toBe(true);
+      expect(pml.expSepLimited).toBeUndefined();
+    });
+
+    test('no building height → PML = MFL', () => {
+      expSepSetup();
+      S.pmlBldgHeight = '';
+      const pml = calcPML();
+      expect(pml.eq).toBe(true);
+    });
+
+    test('Item #5 takes priority over exposure separation', () => {
+      expSepSetup();
+      S.pmlFW2hr = true; S.pmlFWArea = '60000';
+      const pml = calcPML();
+      expect(pml.item5Limited).toBe(true);
+      expect(pml.expSepLimited).toBeUndefined();
+    });
+
+    test('no adjacent buildings → no credit', () => {
+      expSepSetup();
+      S.buildings = [S.buildings[0]]; // only primary
+      const pml = calcPML();
+      expect(pml.eq).toBe(true);
+    });
+
+    test('volunteer FD → no credit', () => {
+      expSepSetup();
+      S.fdType = 'volunteer';
+      const pml = calcPML();
+      expect(pml.eq).toBe(true);
+    });
+
+    test('pmlExpSepInfo returns correct required distance', () => {
+      expSepSetup();
+      S.pmlBldgHeight = '40'; // 150% = 60
+      // Table 3a for hnc→hnc, extra = 100ft; half = 50
+      // Required = max(60, 50) = 60
+      const info = pmlExpSepInfo();
+      expect(info.reqDist).toBe(60);
+      expect(info.heightReq).toBe(60);
+      expect(info.halfT3a).toBe(50);
+    });
+
+    test('uses nearest building by separation distance', () => {
+      expSepSetup();
+      S.buildings.push({ name: 'far', area: '30000', construction: 'comb', occupancy: 'Warehousing', value: '', separation: '500', floors: '1', bldgPct: '', equipPct: '', invPct: '' });
+      const info = pmlExpSepInfo();
+      expect(info.nearest.name).toBe('adjacent'); // 200 < 500
+    });
   });
 });
