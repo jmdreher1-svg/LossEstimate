@@ -48,7 +48,7 @@ function resetS() {
     tab:0, siteName:"", accountNo:"", surveyDate:"", currency:"", units:"imperial",
     buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",bldgPct:"",equipPct:"",invPct:""}],
     primaryIdx:0,
-    hazardClass:"ordinary", isStorage:true, isSensitive:false,
+    hazardClass:"extra", isStorage:true, isSensitive:false,
     sprinklerType:"wet", sprinklerAdequate:"adequate", designPct:"100",
     hasFL:false, protType:"standard", alarmsOk:true, designArea:"", compArea:"",
     defHP:"none", defESFR:"none", defOT:"none", defFC:"none", defFE:false,

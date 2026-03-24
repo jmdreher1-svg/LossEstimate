@@ -156,7 +156,7 @@ const S={
   buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",bldgPct:"",equipPct:"",invPct:""}],
   primaryIdx:0, // which building is the primary fire area
   // Site-wide
-  hazardClass:"ordinary",isStorage:true,isSensitive:false,
+  hazardClass:"extra",isStorage:true,isSensitive:false,
   sprinklerType:"wet",sprinklerAdequate:"adequate",designPct:"100",
   hasFL:false,protType:"standard",alarmsOk:true,designArea:"",compArea:"",
   defHP:"none",defESFR:"none",defOT:"none",defFC:"none",defFE:false,defV:"none",defOE:"none",defOC:"none",
@@ -195,7 +195,7 @@ function rLE(v){return Math.round(v/10000)*10000}
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function pct(v){return(v*100).toFixed(0)+"%"}
 function su(k,v){S[k]=v}
-function set(k,v){S[k]=v;if(k==='sprinklerAdequate'&&v!=='deficient')S.alarmsOk=true;if(k==='isStorage'&&v)S.buildings.forEach(b=>{if(!STORAGE_OCCS.includes(b.occupancy||"Warehousing"))b.occupancy="Warehousing";});render()}
+function set(k,v){S[k]=v;if(k==='sprinklerAdequate'&&v!=='deficient')S.alarmsOk=true;if(k==='isStorage'&&v){S.hazardClass='extra';S.buildings.forEach(b=>{if(!STORAGE_OCCS.includes(b.occupancy||"Warehousing"))b.occupancy="Warehousing";});}render()}
 function ib(k,el){S[k]=el.value;render()}
 
 // APL damage override helpers
@@ -716,9 +716,9 @@ function r0(){
   <div style="margin-top:10px;font-size:11px;color:var(--muted)">Primary fire area: <strong style="color:var(--accent)">${pb().name||"Building "+(S.primaryIdx+1)}</strong> (${fN(primaryArea())} ${aU()}, ${CL[primaryConst()]||""}) | Total site: ${fN(totalSqft())} ${aU()}</div>
   </div>
   <div class="cd"><h3 class="ct">Primary Building Protection</h3>
-  ${fd("NFPA Hazard Classification",sel("hazardClass",[["light","Light Hazard"],["ordinary","Ordinary Hazard"],["extra","Extra Hazard"]]))}
+  ${S.isStorage?fd("NFPA Hazard Classification",'<select disabled><option selected>Extra Hazard (storage)</option></select>'):sel("hazardClass",[["light","Light Hazard"],["ordinary","Ordinary Hazard"],["extra","Extra Hazard"]])}
   <div class="tgr" style="margin-bottom:10px">${tog("Storage Occupancy","isStorage")}${tog("Sensitive Occupancy","isSensitive")}</div>
-  ${S.isStorage?'<div class="note" style="margin-bottom:8px">Storage occupancy selected — occupancy list filtered to storage types. Hazard class does not affect APL scenario for storage (Figure 1A), but still affects MFL separation (Table 3a) and PML fire area (Items #5–#7).</div>':''}
+  ${S.isStorage?'<div class="note" style="margin-bottom:8px">Storage occupancy selected — hazard class locked to Extra Hazard per FP 5020 (Items #5–#7). Occupancy list filtered to storage types.</div>':''}
   <div class="g2">${fd("Sprinkler Type",sel("sprinklerType",[["wet","Wet Pipe"],["dry","Dry Pipe"]]))}${fd("Adequacy",sel("sprinklerAdequate",[["adequate","Reliable & Fully Adequate"],["deficient","Not Fully Adequate"],["none","No Sprinkler Protection"]]))}</div>
   ${S.sprinklerAdequate==="deficient"?fd("% of Design Provided",inp("designPct","80","number")):""}
   <div class="g2">${fd("Protection Configuration",sel("protType",[["standard","Standard (CMDA)"],["esfr","ESFR"],["cmsa","CMSA"]]))}${fd("Sprinkler Design Area ("+aU()+")",inp("designArea",S.units==="metric"?"140":"1500","number"))}</div>
