@@ -85,7 +85,7 @@ html.dark .note{background:rgba(77,141,232,.06);border-color:rgba(77,141,232,.2)
 .brm{background:var(--danger);color:#fff;border:none;border-radius:5px;padding:7px 8px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;height:33px;align-self:end}
 .brm:hover{opacity:.8}
 /* Sticky Footer */
-.footer{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:2px solid var(--accent);padding:8px 24px;display:flex;justify-content:center;gap:40px;z-index:100;box-shadow:0 -2px 10px rgba(0,0,0,.08)}
+.footer{position:fixed;bottom:0;left:220px;right:0;background:var(--card);border-top:2px solid var(--accent);padding:8px 24px;display:flex;justify-content:center;gap:40px;z-index:100;box-shadow:0 -2px 10px rgba(0,0,0,.08)}
 html.dark .footer{box-shadow:0 -2px 10px rgba(0,0,0,.3)}
 .fv{text-align:center}.fv .fl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
 .fv .fn{font-size:16px;font-weight:700;font-family:'DM Mono',monospace}
@@ -99,27 +99,74 @@ html.dark .footer{box-shadow:0 -2px 10px rgba(0,0,0,.3)}
 .apl-row .pct-range{color:var(--dim);font-size:9px}
 .apl-reset{background:none;border:1px solid var(--border);border-radius:4px;padding:3px 10px;font-size:10px;color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif}
 .apl-reset:hover{color:var(--accent);border-color:var(--accent)}
+.storage-banner{background:rgba(176,122,16,.1);border:2px solid rgba(176,122,16,.4);border-radius:6px;padding:10px 12px;color:var(--warn);font-size:11px;line-height:1.5}
+html.dark .storage-banner{background:rgba(212,160,64,.08);border-color:rgba(212,160,64,.35)}
+/* Layout: sidebar + content */
+.app-layout{display:flex;min-height:calc(100vh - 64px)}
+.sidebar{width:220px;background:var(--card);border-right:1px solid var(--border);position:sticky;top:0;height:100vh;overflow-y:auto;flex-shrink:0;padding:12px 0;z-index:50}
+.sidebar .sg{padding:0 12px;margin-bottom:4px}
+.sidebar .sg-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--dim);padding:10px 0 4px;display:flex;align-items:center;gap:6px}
+.sidebar .sg-label .sg-line{flex:1;height:1px;background:var(--border)}
+.sidebar .sn{display:block;width:100%;background:transparent;border:none;text-align:left;padding:7px 12px 7px 16px;font-size:12px;font-family:'DM Sans',sans-serif;color:var(--muted);cursor:pointer;transition:all .15s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px}
+.sidebar .sn:hover{color:var(--text);background:var(--ibg)}
+.sidebar .sn.on{color:var(--accent);font-weight:600;border-left-color:var(--accent);background:rgba(0,70,173,.04)}
+html.dark .sidebar .sn.on{background:rgba(77,141,232,.06)}
+.sidebar .sn .sn-num{width:20px;height:20px;border-radius:50%;background:var(--ibg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--dim);flex-shrink:0}
+.sidebar .sn.on .sn-num{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sidebar .sn.done .sn-num{background:var(--success);color:#fff;border-color:var(--success)}
+.sidebar .view-toggle{margin:12px;padding:6px;background:var(--ibg);border-radius:6px;display:flex;gap:2px}
+.sidebar .vt-btn{flex:1;padding:5px 0;border:none;border-radius:4px;font-size:10px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;text-align:center;transition:all .15s;color:var(--muted);background:transparent}
+.sidebar .vt-btn.on{background:var(--card);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+/* Scroll mode section anchors */
+.scroll-section{margin-bottom:24px;scroll-margin-top:12px}
+.scroll-section .section-hdr{background:var(--card);border:1px solid var(--border);border-radius:8px 8px 0 0;padding:10px 16px;font-size:13px;font-weight:700;color:var(--accent);border-bottom:2px solid var(--accent);margin-bottom:0;position:sticky;top:0;z-index:10}
+/* Hide old tabs bar when sidebar is active */
+.has-sidebar .tabs{display:none}
+.has-sidebar .cnt{margin:0;max-width:none;padding:20px 24px}
+.has-sidebar .footer{left:220px}
+@media(max-width:900px){
+  .sidebar{display:none}
+  .has-sidebar .tabs{display:flex}
+  .has-sidebar .cnt{max-width:960px;margin:0 auto}
+  .has-sidebar .footer{left:0}
+}
 </style>
 </head>
 <body>
 <div class="hdr">
   <div><div class="tg">FP 5020 Rev E - Fire Protection Practices</div><h1>Loss Estimate Calculator</h1></div>
   <div class="r">
-    <button class="tbtn" onclick="saveState()" title="Save">💾</button>
+    <button class="tbtn" onclick="exportState()" title="Export to file">📥</button>
+    <button class="tbtn" onclick="importState()" title="Import from file">📤</button>
+    <button class="tbtn" id="saveBtn" onclick="saveState(true)" title="Save">💾</button>
     <button class="tbtn" onclick="resetState()" title="Reset all data">🗑️</button>
     <button class="tbtn" onclick="toggleTheme()" title="Toggle theme" id="themeBtn">🌙</button>
   </div>
 </div>
+<div class="app-layout has-sidebar">
+<div class="sidebar" id="sidebar"></div>
+<div style="flex:1;min-width:0">
 <div class="tabs" id="tabs"></div>
 <div class="cnt" id="cnt"></div>
+</div>
+</div>
 <div class="footer" id="footer"></div>
 
 <script>
 function toggleTheme(){document.documentElement.classList.toggle('dark');const d=document.documentElement.classList.contains('dark');localStorage.setItem('fp5020theme',d?'dark':'light');document.getElementById('themeBtn').textContent=d?'☀️':'🌙'}
 if(localStorage.getItem('fp5020theme')==='dark'){document.documentElement.classList.add('dark');document.getElementById('themeBtn').textContent='☀️'}
-function saveState(){localStorage.setItem('fp5020state',JSON.stringify(S));alert('Saved.')}
-function loadState(){try{const s=localStorage.getItem('fp5020state');if(s)Object.assign(S,JSON.parse(s))}catch(e){}}
+let _savedSnapshot='';
+let _dirty=false;
+function _stateJSON(){return JSON.stringify(S)}
+function saveState(showAlert){localStorage.setItem('fp5020state',_stateJSON());_savedSnapshot=_stateJSON();_dirty=false;_updateSaveIndicator();if(showAlert)alert('Saved.')}
+function autoSave(){const j=_stateJSON();if(j!==_savedSnapshot){localStorage.setItem('fp5020state',j);_savedSnapshot=j;_dirty=false;_updateSaveIndicator()}}
+function _markDirty(){const j=_stateJSON();if(j!==_savedSnapshot){_dirty=true;_updateSaveIndicator()}}
+function _updateSaveIndicator(){const el=document.getElementById('saveBtn');if(!el)return;el.innerHTML=_dirty?'<span style="position:relative">💾<span style="position:absolute;top:-2px;right:-4px;width:7px;height:7px;background:var(--danger);border-radius:50%"></span></span>':'💾';el.title=_dirty?'Save (unsaved changes)':'Save'}
+function loadState(){try{const s=localStorage.getItem('fp5020state');if(s)Object.assign(S,JSON.parse(s));_savedSnapshot=_stateJSON()}catch(e){}}
 function resetState(){if(!confirm('Are you sure you want to reset all data?\n\nThis will clear all entered values and return the calculator to its default state. This cannot be undone.'))return;localStorage.removeItem('fp5020state');location.reload()}
+function exportState(){const blob=new Blob([_stateJSON()],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='fp5020_'+(S.siteName||'export').replace(/[^a-zA-Z0-9]/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.json';a.click();URL.revokeObjectURL(url)}
+function importState(){const inp=document.createElement('input');inp.type='file';inp.accept='.json';inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(!confirm('Import data from "'+f.name+'"?\n\nThis will replace all current data.'))return;Object.assign(S,d);saveState(false);render();alert('Imported successfully.')}catch(err){alert('Invalid file: '+err.message)}};r.readAsText(f)};inp.click()}
+window.addEventListener('beforeunload',e=>{const j=_stateJSON();if(j!==_savedSnapshot){e.preventDefault();e.returnValue=''}})
 
 // DATA
 const APL_SC={A:{l:"A",d:"Non-Sensitive, Light/Ordinary, Adequate",wet:{fire:{a:700,b:.25,e:1,i:1},water:{a:1500,b:.1,e:.25,i:.5},smoke:{a:10000,b:.075,e:.075,i:.15}},dry:{fire:{a:1000,b:.25,e:1,i:1},water:{a:2000,b:.1,e:.25,i:.5},smoke:{a:15000,b:.075,e:.075,i:.15}},bi:"1 - 7 Days"},B:{l:"B",d:"Sensitive, Light/Ordinary, Adequate",wet:{fire:{a:700,b:.5,e:1,i:1},water:{a:1500,b:.25,e:.5,i:1},smoke:{a:10000,b:.125,e:.175,i:1}},dry:{fire:{a:1000,b:.5,e:1,i:1},water:{a:2000,b:.25,e:.5,i:1},smoke:{a:15000,b:.125,e:.175,i:1}},bi:"1 - 3 Weeks"},C:{l:"C",d:"Non-Sensitive, Extra Hazard, Adequate (No FL/CL)",wet:{fire:{a:1200,b:.25,e:1,i:1},water:{a:2500,b:.25,e:.25,i:.5},smoke:{a:20000,b:.075,e:.075,i:.15}},dry:{fire:{a:1500,b:.25,e:1,i:1},water:{a:3500,b:.25,e:.25,i:.5},smoke:{a:30000,b:.075,e:.075,i:.15}},bi:"1 - 7 Days"},D:{l:"D",d:"Sensitive, Extra Hazard, Adequate (No FL/CL)",wet:{fire:{a:1200,b:.5,e:1,i:1},water:{a:2500,b:.4,e:.5,i:1},smoke:{a:20000,b:.125,e:.175,i:1}},dry:{fire:{a:1500,b:.5,e:1,i:1},water:{a:3500,b:.4,e:.5,i:1},smoke:{a:30000,b:.125,e:.175,i:1}},bi:"2 - 4 Weeks"},E:{l:"E",d:"Non-Sensitive, Extra Hazard w/ FL/CL",wet:{fire:{a:"design",b:.25,e:1,i:1},water:{a:"2x",b:.25,e:.25,i:.5},smoke:{a:"comp",b:.075,e:.075,i:.15}},dry:null,bi:"8 - 16 Weeks"},F:{l:"F",d:"Sensitive, Extra Hazard w/ FL/CL",wet:{fire:{a:"design",b:.5,e:1,i:1},water:{a:"2x",b:.25,e:.5,i:1},smoke:{a:"comp",b:.125,e:.175,i:1}},dry:null,bi:"4 - 12 Weeks"},G:{l:"G",d:"Design Area Fire (Deficiency / Storage)",wet:{fire:{a:"design",b:1,e:1,i:1},water:{a:"5x",b:.25,e:.25,i:.5},smoke:{a:"comp",b:.125,e:.125,i:.625}},dry:null,bi:"4 - 12 Weeks"},H:{l:"H",d:"Storage, Non-Sensitive, ESFR",wet:{fire:{a:500,b:.25,e:1,i:1},water:{a:2000,b:.25,e:.25,i:1},smoke:{a:10000,b:.075,e:.075,i:.15}},dry:null,bi:"1 - 7 Days"},I:{l:"I",d:"Storage, Sensitive, ESFR",wet:{fire:{a:500,b:.5,e:1,i:1},water:{a:2000,b:.4,e:.4,i:1},smoke:{a:10000,b:.125,e:.15,i:1}},dry:null,bi:"2 - 4 Weeks"},J:{l:"J",d:"Storage, Non-Sensitive, CMSA",wet:{fire:{a:700,b:.25,e:1,i:1},water:{a:2000,b:.25,e:.25,i:1},smoke:{a:10000,b:.075,e:.075,i:.15}},dry:{fire:{a:1500,b:.25,e:1,i:1},water:{a:4000,b:.25,e:.25,i:1},smoke:{a:25000,b:.075,e:.075,i:.15}},bi:"1 - 7 Days"},K:{l:"K",d:"Storage, Sensitive, CMSA",wet:{fire:{a:700,b:.5,e:1,i:1},water:{a:2000,b:.4,e:.4,i:1},smoke:{a:10000,b:.125,e:.15,i:1}},dry:{fire:{a:1500,b:.5,e:1,i:1},water:{a:4000,b:.4,e:.4,i:1},smoke:{a:25000,b:.125,e:.15,i:1}},bi:"2 - 4 Weeks"}};
@@ -150,7 +197,7 @@ const CURRENCIES=[["","— None —"],["$","USD ($)"],["€","EUR (€)"],["£",
 
 // STATE
 const S={
-  tab:0,siteName:"",accountNo:"",surveyDate:"",
+  tab:0,viewMode:"tab",siteName:"",accountNo:"",surveyDate:"",
   currency:"",units:"imperial",
   // Buildings array: each has name, area, construction, occupancy, value (override), separation (for MFL)
   buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",bldgPct:"",equipPct:"",invPct:""}],
@@ -708,6 +755,13 @@ function copyAll(){const t=[S.aplN,S.pmlN,S.mflN].join('\n\n---\n\n');navigator.
 
 // TABS
 const TN=["Site Info","Values","BI","APL","PML","MFL","Summary","High Rise","Revision"];
+const TAB_GROUPS=[
+  {label:"Setup",tabs:[0,1,2]},
+  {label:"Analysis",tabs:[3,4,5]},
+  {label:"Results",tabs:[6,7,8]}
+];
+function setViewMode(m){S.viewMode=m;render()}
+function scrollToSection(i){const el=document.getElementById('section-'+i);if(el)el.scrollIntoView({behavior:'smooth',block:'start'})}
 
 function r0(){
   const allOcc=Object.keys(MFL_T).map(k=>[k,k]);
@@ -739,7 +793,7 @@ function r0(){
   <div class="cd"><h3 class="ct">Primary Building Protection</h3>
   ${S.isStorage?fd("NFPA Hazard Classification",'<select disabled><option selected>Extra Hazard (storage)</option></select>'):fd("NFPA Hazard Classification",sel("hazardClass",[["light","Light Hazard"],["ordinary","Ordinary Hazard"],["extra","Extra Hazard"]]))}
   <div class="tgr" style="margin-bottom:10px">${tog("Storage Occupancy","isStorage")}${tog("Sensitive Occupancy","isSensitive")}</div>
-  ${S.isStorage?'<div class="note" style="margin-bottom:8px">Storage occupancy selected — hazard class locked to Extra Hazard per FP 5020 (Items #5–#7). Occupancy list filtered to storage types.</div>':''}
+  ${S.isStorage?'<div class="storage-banner" style="margin-bottom:8px"><strong>STORAGE MODE ACTIVE</strong> — Hazard class locked to Extra Hazard per FP 5020 (Items #5–#7). Occupancy list filtered to storage types (Warehousing, Warehousing (Refrigerated), Big Box Retail). Toggle "Storage Occupancy" above to see all 26 occupancy types.</div>':''}
   <div class="g2">${fd("Sprinkler Type",sel("sprinklerType",[["wet","Wet Pipe"],["dry","Dry Pipe"]]))}${fd("Adequacy",sel("sprinklerAdequate",[["adequate","Reliable & Fully Adequate"],["deficient","Not Fully Adequate"],["none","No Sprinkler Protection"]]))}</div>
   ${S.sprinklerAdequate==="deficient"?fd("% of Design Provided",inp("designPct","80","number")):""}
   <div class="g2">${fd("Protection Configuration",sel("protType",[["standard","Standard (CMDA)"],["esfr","ESFR"],["cmsa","CMSA"]]))}${fd("Sprinkler Design Area ("+aU()+")",inp("designArea",S.units==="metric"?"140":"1500","number"))}</div>
@@ -968,6 +1022,7 @@ function rRev(){
   <table style="width:100%;border-collapse:collapse;font-size:12px">
   <thead><tr style="border-bottom:2px solid var(--border)"><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Rev</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Date</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Author</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Status</th><th style="padding:8px;color:var(--muted);font-size:9px;text-transform:uppercase;text-align:left">Description</th></tr></thead>
   <tbody>
+  <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.15</td><td style="padding:8px">04/04/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">UX improvements based on review feedback. (1) Storage mode visibility: replaced subtle info note with a prominent amber "STORAGE MODE ACTIVE" banner when storage occupancy is toggled on, clearly explaining the occupancy filter and how to see all 26 types. (2) Auto-save: state now auto-saves to localStorage on every render — no risk of data loss from accidental tab/browser close. beforeunload warning prompts if navigating away. Unsaved changes indicator (red dot) shown on the save button. (3) File export/import: added export (JSON download) and import (file upload) buttons in the header toolbar, enabling data portability across browsers and devices and easy sharing between engineers. (4) Navigation overhaul: added persistent left sidebar with tabs grouped into Setup (Site Info, Values, BI), Analysis (APL, PML, MFL), and Results (Summary, High Rise, Revision) sections. Progress stepper with numbered/checkmark indicators shows completion status. New "Scroll" view mode renders all sections on one scrollable page with sticky section headers and sidebar navigation for quick jumping. Sidebar collapses on mobile (&lt;900px) with original tab bar as fallback. 266 tests passing.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.14</td><td style="padding:8px">03/23/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Two bug fixes: (1) Storage occupancy UI: when Storage Occupancy is toggled ON, the building occupancy dropdown now filters to storage-relevant types (Warehousing, Warehousing (Refrigerated), Big Box Retail) and displays a note explaining that hazard class does not affect APL scenario for storage (Figure 1A) but still affects MFL separation (Table 3a) and PML fire area (Items #5–#7). Non-storage occupancies are auto-reset to Warehousing when the storage toggle is activated. (2) Stale alarmsOk state: when changing sprinkler adequacy away from "Not Fully Adequate", the alarmsOk flag now resets to true. Previously, toggling alarms OFF while sprinklers were deficient and then changing to adequate or none left a hidden alarmsOk=false in state, which could cause incorrect PML=MFL triggers via calcPML() Step 1. 249 tests passing.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.13</td><td style="padding:8px">03/23/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Implemented FP 5020 Items #5, #6, and #7 for PML fire area determination. PML now defaults to MFL unless qualifying conditions are met. Item #7: for light and ordinary hazard occupancies only — without FL/CL, with adequately designed sprinklers, multiple sprinkler systems, central station supervision or 24-hour occupancy, and a fully paid quick-responding FD — the fire area may be limited to sprinkler system size plus 50% (design area × 1.5). Zone-based scale factors are only applied when Item #7 is met. If any Item #7 qualifier is missing, PML = MFL. Item #6: for extra hazard and storage occupancies, PML = MFL unless a 2-hour fire wall is credited per Item #5. Item #5: credits NC/FR construction with a NFPA 221/FMDS 1-21 qualifying 2-hour+ fire wall (no large unprotected openings) and fully paid prompt FD to limit PML fire area; MFL damage percentages are applied proportionally to the fire wall area. Added PML Configuration UI toggles for multiple risers/systems, central station/24-hour occupancy, and 2-hour fire wall with area input. PML narrative updated to reference governing item and qualifier status. 254 tests passing.</td></tr>
   <tr style="border-bottom:1px solid var(--border)"><td style="padding:8px;font-weight:600;color:var(--accent)">0.12</td><td style="padding:8px">03/23/2026</td><td style="padding:8px">John Dreher, P.E.</td><td style="padding:8px"><span class="bdg bdg-w">Pre-Release</span></td><td style="padding:8px">Rounding changed from tiered ($1K under $100K / $100K over $100K) to uniform $10,000 rounding. Zone-level damages (fire, water, smoke × building, equipment, inventory) are now each rounded to the nearest $10,000 individually; category totals (pB, pE, pI) and grand totals (pT) are straight additions of the rounded zone values with no additional rounding. Custom per-building value distribution: added optional "Custom Value Weighting" toggle on the Values tab. When enabled, each building can have independent percentages for Building, Equipment, and Inventory value categories (e.g., warehouse gets 60% of building value but 90% of inventory, office gets 40% of building but 10% of inventory). Each category's percentages should independently sum to 100%. The resulting $/sqft per building derives naturally from the percentage allocation and each building's area. Default behavior (off) remains area-proportional distribution. Value overrides on MFL tab still take precedence. 247 tests passing.</td></tr>
@@ -989,11 +1044,41 @@ function rRev(){
 
 const RF=[r0,r1,rBI,r2,r3,r4,r5,r6,rRev];
 
+function _renderSidebar(){
+  // Determine which tabs have meaningful data for "done" indicator
+  const hasArea=primaryArea()>0;
+  const hasValues=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv)>0;
+  const hasBI=pf(S.biYearly)>0||(S.biMode==="percent"&&pf(S.biPct)>0);
+  const done=[S.siteName||S.accountNo?true:false,hasValues,hasBI,hasArea&&hasValues,hasArea&&hasValues,hasArea&&hasValues,hasArea&&hasValues,false,false];
+  let sb='<div class="view-toggle"><button class="vt-btn'+(S.viewMode==='tab'?' on':'')+'" onclick="setViewMode(\'tab\')">Tabs</button><button class="vt-btn'+(S.viewMode==='scroll'?' on':'')+'" onclick="setViewMode(\'scroll\')">Scroll</button></div>';
+  TAB_GROUPS.forEach(g=>{
+    sb+=`<div class="sg"><div class="sg-label">${g.label}<span class="sg-line"></span></div></div>`;
+    g.tabs.forEach(i=>{
+      const isOn=S.viewMode==='tab'?S.tab===i:false;
+      const isDone=done[i];
+      sb+=`<button class="sn${isOn?' on':''}${isDone&&!isOn?' done':''}" onclick="${S.viewMode==='scroll'?'scrollToSection('+i+')':'S.tab='+i+';render()'}"><span class="sn-num">${isDone&&!isOn?'✓':(i+1)}</span>${TN[i]}</button>`;
+    });
+  });
+  document.getElementById('sidebar').innerHTML=sb;
+}
 function render(){
-  genN();
+  genN();autoSave();
+  _renderSidebar();
+  // Mobile fallback tabs
   document.getElementById('tabs').innerHTML=TN.map((t,i)=>`<button class="tb${S.tab===i?' on':''}" onclick="S.tab=${i};render()">${t}</button>`).join('');
-  let h=`<div>${RF[S.tab]()}</div>`;
-  h+=`<div class="nav">${S.tab>0?`<button class="bn bno" onclick="S.tab=${S.tab-1};render()">< ${TN[S.tab-1]}</button>`:'<div></div>'}${S.tab<TN.length-1?`<button class="bn bnp" onclick="S.tab=${S.tab+1};render()">${TN[S.tab+1]} ></button>`:''}</div>`;
+  let h='';
+  if(S.viewMode==='scroll'){
+    // Scroll mode: render all sections
+    TN.forEach((t,i)=>{
+      const groupLabel=TAB_GROUPS.find(g=>g.tabs[0]===i);
+      if(groupLabel)h+=`<div style="color:var(--dim);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin:${i===0?'0':'20px'} 0 8px;padding-top:4px">${groupLabel.label}</div>`;
+      h+=`<div class="scroll-section" id="section-${i}"><div class="section-hdr">${t}</div><div>${RF[i]()}</div></div>`;
+    });
+  } else {
+    // Tab mode (default): single section
+    h=`<div>${RF[S.tab]()}</div>`;
+    h+=`<div class="nav">${S.tab>0?`<button class="bn bno" onclick="S.tab=${S.tab-1};render()">< ${TN[S.tab-1]}</button>`:'<div></div>'}${S.tab<TN.length-1?`<button class="bn bnp" onclick="S.tab=${S.tab+1};render()">${TN[S.tab+1]} ></button>`:''}</div>`;
+  }
   document.getElementById('cnt').innerHTML=h;
   // Sticky footer
   const apl=calcAPL(),pml=calcPML(),mfl=calcMFL();const aplPD=apl.eq?pml.pT:apl.pT;
