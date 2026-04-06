@@ -17,7 +17,8 @@ html.dark .hdr .tg{color:var(--al)}
 .hdr .r{display:flex;align-items:center;gap:12px}
 .hdr .r .s1{font-size:10px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px}
 html.dark .hdr .r .s1{color:var(--dim)}
-.tbtn{background:rgba(255,255,255,.15);border:none;border-radius:5px;padding:5px 9px;cursor:pointer;font-size:14px;color:#fff;transition:background .15s}
+.tbtn{background:rgba(255,255,255,.15);border:none;border-radius:5px;padding:5px 9px;cursor:pointer;font-size:14px;color:#fff;transition:background .15s;display:inline-flex;align-items:center;gap:4px}
+.tbtn .bl{font-size:10px;font-weight:600;letter-spacing:.3px}
 html.dark .tbtn{background:var(--border);color:var(--text)}
 .tbtn:hover{background:rgba(255,255,255,.25)}
 .tabs,.mob-tabs{display:flex;gap:2px;padding:0 24px;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto}
@@ -35,6 +36,7 @@ html.dark .tbtn{background:var(--border);color:var(--text)}
   .hdr .tg{display:none}
   .hdr h1{font-size:14px}
   .hdr .r .s1{display:none}
+  .tbtn .bl{display:none}
   .tabs,.mob-tabs{padding:0 6px}
   .tb{padding:8px 9px;font-size:10px}
   .cnt{padding:10px}
@@ -127,11 +129,11 @@ html.dark .sb-item.on{background:rgba(77,141,232,.06)}
 <div class="hdr">
   <div><div class="tg">FP 5020 Rev E - Fire Protection Practices</div><h1>Loss Estimate Calculator</h1></div>
   <div class="r">
-    <button class="tbtn" onclick="exportJSON()" title="Export as JSON">📥</button>
-    <button class="tbtn" onclick="document.getElementById('importFile').click()" title="Import JSON">📤</button>
+    <button class="tbtn" onclick="exportJSON()" title="Export project to file">📥<span class="bl">Export</span></button>
+    <button class="tbtn" onclick="document.getElementById('importFile').click()" title="Import project from file">📤<span class="bl">Import</span></button>
     <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(this)">
-    <button class="tbtn" onclick="saveState()" title="Save">💾</button>
-    <button class="tbtn" onclick="resetState()" title="Reset all data">🗑️</button>
+    <button class="tbtn" onclick="saveState()" title="Save">💾<span class="bl">Save</span></button>
+    <button class="tbtn" onclick="resetState()" title="Reset all data">🗑️<span class="bl">Reset</span></button>
     <button class="tbtn" onclick="toggleTheme()" title="Toggle theme" id="themeBtn">🌙</button>
   </div>
 </div>
