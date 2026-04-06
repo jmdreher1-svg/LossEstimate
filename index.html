@@ -129,8 +129,8 @@ html.dark .sb-item.on{background:rgba(77,141,232,.06)}
 <div class="hdr">
   <div><div class="tg">FP 5020 Rev E - Fire Protection Practices</div><h1>Loss Estimate Calculator</h1></div>
   <div class="r">
-    <button class="tbtn" onclick="exportJSON()" title="Export project to file">📥<span class="bl">Export</span></button>
-    <button class="tbtn" onclick="document.getElementById('importFile').click()" title="Import project from file">📤<span class="bl">Import</span></button>
+    <button class="tbtn" onclick="exportJSON()" title="Save all data to a file you can share or reload later">📥<span class="bl">Save to File</span></button>
+    <button class="tbtn" onclick="document.getElementById('importFile').click()" title="Load a previously saved file">📤<span class="bl">Load File</span></button>
     <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(this)">
     <button class="tbtn" onclick="saveState()" title="Save">💾<span class="bl">Save</span></button>
     <button class="tbtn" onclick="resetState()" title="Reset all data">🗑️<span class="bl">Reset</span></button>
