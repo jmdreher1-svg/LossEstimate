@@ -17,7 +17,8 @@ html.dark .hdr .tg{color:var(--al)}
 .hdr .r{display:flex;align-items:center;gap:12px}
 .hdr .r .s1{font-size:10px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px}
 html.dark .hdr .r .s1{color:var(--dim)}
-.tbtn{background:rgba(255,255,255,.15);border:none;border-radius:5px;padding:5px 9px;cursor:pointer;font-size:14px;color:#fff;transition:background .15s}
+.tbtn{background:rgba(255,255,255,.15);border:none;border-radius:5px;padding:5px 9px;cursor:pointer;font-size:14px;color:#fff;transition:background .15s;display:inline-flex;align-items:center;gap:4px}
+.tbtn .bl{font-size:10px;font-weight:600;letter-spacing:.3px}
 html.dark .tbtn{background:var(--border);color:var(--text)}
 .tbtn:hover{background:rgba(255,255,255,.25)}
 .tabs,.mob-tabs{display:flex;gap:2px;padding:0 24px;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto}
@@ -35,6 +36,7 @@ html.dark .tbtn{background:var(--border);color:var(--text)}
   .hdr .tg{display:none}
   .hdr h1{font-size:14px}
   .hdr .r .s1{display:none}
+  .tbtn .bl{display:none}
   .tabs,.mob-tabs{padding:0 6px}
   .tb{padding:8px 9px;font-size:10px}
   .cnt{padding:10px}
@@ -119,23 +121,19 @@ html.dark .sb-item.on{background:rgba(77,141,232,.06)}
 .sb-dot.done{background:var(--success);border-color:var(--success)}
 .sb-dot.partial{background:var(--warn);border-color:var(--warn)}
 .sb-prog{font-size:9px;color:var(--dim);padding:2px 16px 0;text-align:right}
-.sb-mode{margin:12px 16px 0;display:flex;border:1px solid var(--border);border-radius:5px;overflow:hidden}
-.sb-mode button{flex:1;padding:6px;border:none;background:transparent;color:var(--muted);font-size:10px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .15s}
-.sb-mode button.on{background:var(--accent);color:#fff}
 .mob-tabs{display:none;gap:2px;padding:0 6px;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto}
 .app-body .cnt{flex:1;min-width:0}
-.scroll-sec-hdr{color:var(--accent);font-size:14px;font-weight:700;margin:24px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:1px}
 </style>
 </head>
 <body>
 <div class="hdr">
   <div><div class="tg">FP 5020 Rev E - Fire Protection Practices</div><h1>Loss Estimate Calculator</h1></div>
   <div class="r">
-    <button class="tbtn" onclick="exportJSON()" title="Export as JSON">📥</button>
-    <button class="tbtn" onclick="document.getElementById('importFile').click()" title="Import JSON">📤</button>
+    <button class="tbtn" onclick="exportJSON()" title="Save all data to a file you can share or reload later">📥<span class="bl">Save to File</span></button>
+    <button class="tbtn" onclick="document.getElementById('importFile').click()" title="Load a previously saved file">📤<span class="bl">Load File</span></button>
     <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(this)">
-    <button class="tbtn" onclick="saveState()" title="Save">💾</button>
-    <button class="tbtn" onclick="resetState()" title="Reset all data">🗑️</button>
+    <button class="tbtn" onclick="saveState()" title="Save">💾<span class="bl">Save</span></button>
+    <button class="tbtn" onclick="resetState()" title="Reset all data">🗑️<span class="bl">Reset</span></button>
     <button class="tbtn" onclick="toggleTheme()" title="Toggle theme" id="themeBtn">🌙</button>
   </div>
 </div>
@@ -188,7 +186,7 @@ const CURRENCIES=[["","— None —"],["$","USD ($)"],["€","EUR (€)"],["£",
 
 // STATE
 const S={
-  tab:0,viewMode:"tabs",siteName:"",accountNo:"",surveyDate:"",
+  tab:0,siteName:"",accountNo:"",surveyDate:"",
   currency:"",units:"imperial",
   // Buildings array: each has name, area, construction, occupancy, value (override), separation (for MFL)
   buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",bldgPct:"",equipPct:"",invPct:""}],
@@ -1040,22 +1038,16 @@ function render(){
     sec.tabs.forEach(ti=>{
       const tc=tabComplete(ti);
       const dotCls=tc===2?'done':tc===1?'partial':'';
-      sb+=`<div class="sb-item${S.tab===ti&&S.viewMode==='tabs'?' on':''}" onclick="${S.viewMode==='tabs'?`S.tab=${ti};render()`:`document.getElementById('sec-${ti}').scrollIntoView({behavior:'smooth'})`}"><div class="sb-dot ${dotCls}"></div>${TN[ti]}</div>`;
+      sb+=`<div class="sb-item${S.tab===ti?' on':''}" onclick="S.tab=${ti};render()"><div class="sb-dot ${dotCls}"></div>${TN[ti]}</div>`;
     });
     sb+=`<div class="sb-prog">${prog.done}/${prog.total}</div></div>`;
   });
-  sb+=`<div class="sb-mode"><button class="${S.viewMode==='tabs'?'on':''}" onclick="S.viewMode='tabs';render()">Tabs</button><button class="${S.viewMode==='scroll'?'on':''}" onclick="S.viewMode='scroll';render()">Scroll</button></div>`;
   document.getElementById('sidebar').innerHTML=sb;
   // Mobile tabs
   document.getElementById('mobtabs').innerHTML=TN.map((t,i)=>`<button class="tb${S.tab===i?' on':''}" onclick="S.tab=${i};render()">${t}</button>`).join('');
   // Content
-  let h='';
-  if(S.viewMode==='scroll'){
-    RF.forEach((fn,i)=>{h+=`<div id="sec-${i}" style="scroll-margin-top:20px"><h2 class="scroll-sec-hdr">${TN[i]}</h2>${fn()}</div>`;});
-  }else{
-    h=`<div>${RF[S.tab]()}</div>`;
-    h+=`<div class="nav">${S.tab>0?`<button class="bn bno" onclick="S.tab=${S.tab-1};render()">< ${TN[S.tab-1]}</button>`:'<div></div>'}${S.tab<TN.length-1?`<button class="bn bnp" onclick="S.tab=${S.tab+1};render()">${TN[S.tab+1]} ></button>`:''}</div>`;
-  }
+  let h=`<div>${RF[S.tab]()}</div>`;
+  h+=`<div class="nav">${S.tab>0?`<button class="bn bno" onclick="S.tab=${S.tab-1};render()">< ${TN[S.tab-1]}</button>`:'<div></div>'}${S.tab<TN.length-1?`<button class="bn bnp" onclick="S.tab=${S.tab+1};render()">${TN[S.tab+1]} ></button>`:''}</div>`;
   document.getElementById('cnt').innerHTML=h;
   // Sticky footer
   const apl=calcAPL(),pml=calcPML(),mfl=calcMFL();const aplPD=apl.eq?pml.pT:apl.pT;
