@@ -81,6 +81,7 @@ html.dark .tbtn{background:var(--border);color:var(--text)}
 .bnp{background:var(--accent);color:#fff;font-weight:600}
 .bnc{background:var(--ad);color:#fff;font-size:9px;padding:4px 10px;border-radius:3px;cursor:pointer;border:none;font-family:'DM Sans',sans-serif;text-transform:uppercase;letter-spacing:.5px}
 .bnc:hover{background:var(--accent)}
+.bna{background:var(--accent)}
 .ifx{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .note{background:rgba(0,70,173,.04);border:1px solid rgba(0,70,173,.12);border-radius:6px;padding:9px 10px;color:var(--accent);font-size:11px;margin-bottom:10px;line-height:1.5}
 html.dark .note{background:rgba(77,141,232,.06);border-color:rgba(77,141,232,.2)}
@@ -191,7 +192,7 @@ const S={
   tab:0,siteName:"",accountNo:"",surveyDate:"",
   currency:"",units:"imperial",
   // Buildings array: each has name, area, construction, occupancy, value (override), separation (for MFL)
-  buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",bldgPct:"",equipPct:"",invPct:""}],
+  buildings:[{name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",bldgPct:"",equipPct:"",invPct:"",bldgVal:"",equipVal:"",invVal:""}],
   primaryIdx:0, // which building is the primary fire area
   // Site-wide
   hazardClass:"extra",isStorage:true,isSensitive:false,
@@ -200,7 +201,8 @@ const S={
   defHP:"none",defESFR:"none",defOT:"none",defFC:"none",defFE:false,defV:"none",defOE:"none",defOC:"none",
   // Values
   totalBldg:"",totalEquip:"",totalInv:"",biYearly:"",biMode:"dollar",annualProd:"",biPct:"",
-  valueDist:"area", // "area" = proportional by sqft (default), "custom" = user-specified % per building
+  valueDist:"area", // "area" = proportional by sqft (default), "custom" = user-specified % or $ per building
+  customDistMode:"pct", // "pct" = percentage entry (default), "dollar" = direct currency entry
   // PML
   pmlSystem:"sprinkler_riser",fdTime:"prompt",fdType:"fullypaid",pmlArea:"",hasCombConst:false,
   multipleRisers:false,centralStation:false,
@@ -253,7 +255,7 @@ function totalSqft(){return S.buildings.reduce((s,b)=>s+pf(b.area),0)}
 function primaryArea(){return pf(pb().area)}
 function primaryConst(){return pb().construction}
 function primaryOcc(){return pb().occupancy||"Warehousing"}
-function addBldg(){S.buildings.push({name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",bldgPct:"",equipPct:"",invPct:""});render()}
+function addBldg(){S.buildings.push({name:"",area:"",construction:"hnc",occupancy:"Warehousing",value:"",separation:"",floors:"",bldgPct:"",equipPct:"",invPct:"",bldgVal:"",equipVal:"",invVal:""});render()}
 function rmBldg(i){if(S.buildings.length<=1)return;S.buildings.splice(i,1);if(S.primaryIdx>=S.buildings.length)S.primaryIdx=0;render()}
 function setBldg(i,k,v){S.buildings[i][k]=v}
 function setBldgR(i,k,el){S.buildings[i][k]=el.value;if(k==='occupancy')syncStorageToggle();render()}
@@ -264,8 +266,13 @@ function bldgValue(i){
   const b=S.buildings[i],ov=pf(b.value);
   if(ov>0)return ov;
   if(S.valueDist==="custom"){
-    const hasCust=(b.bldgPct!==''&&b.bldgPct!==undefined)||(b.equipPct!==''&&b.equipPct!==undefined)||(b.invPct!==''&&b.invPct!==undefined);
-    if(hasCust)return bldgCatValue(i,'b')+bldgCatValue(i,'e')+bldgCatValue(i,'i');
+    if(S.customDistMode==="dollar"){
+      const hasD=(b.bldgVal!==''&&b.bldgVal!==undefined)||(b.equipVal!==''&&b.equipVal!==undefined)||(b.invVal!==''&&b.invVal!==undefined);
+      if(hasD)return bldgCatValue(i,'b')+bldgCatValue(i,'e')+bldgCatValue(i,'i');
+    } else {
+      const hasCust=(b.bldgPct!==''&&b.bldgPct!==undefined)||(b.equipPct!==''&&b.equipPct!==undefined)||(b.invPct!==''&&b.invPct!==undefined);
+      if(hasCust)return bldgCatValue(i,'b')+bldgCatValue(i,'e')+bldgCatValue(i,'i');
+    }
   }
   const ts=totalSqft(),ba=pf(b.area),tv=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);
   return ts>0?tv*(ba/ts):0;
@@ -277,6 +284,12 @@ function bldgCatValue(i,cat){
   // Value override: use its proportion of total PD
   const ov=pf(b.value);
   if(ov>0){const sitePD=pf(S.totalBldg)+pf(S.totalEquip)+pf(S.totalInv);return sitePD>0?siteVal*(ov/sitePD):0;}
+  // Dollar entry mode
+  if(S.valueDist==="custom"&&S.customDistMode==="dollar"){
+    const valKey=cat==='b'?'bldgVal':cat==='e'?'equipVal':'invVal';
+    if(b[valKey]!==''&&b[valKey]!==undefined)return pf(b[valKey]);
+    return ts>0?siteVal*(ba/ts):0;
+  }
   const pctKey=cat==='b'?'bldgPct':cat==='e'?'equipPct':'invPct';
   if(S.valueDist==="custom"&&b[pctKey]!==''&&b[pctKey]!==undefined)return siteVal*(pf(b[pctKey])/100);
   return ts>0?siteVal*(ba/ts):0;
@@ -802,17 +815,36 @@ function r0(){
 function r1(){
   const v=gv(),ts=totalSqft();
   const isCustom=S.valueDist==="custom";
-  // Calculate sum of effective percentages per category for validation (include area-based defaults for blank entries)
+  const isDollar=isCustom&&S.customDistMode==="dollar";
+  const isPct=isCustom&&S.customDistMode!=="dollar";
+  // Percentage mode validation: effective percentages per category (include area-based defaults for blank entries)
   const bPctSum=S.buildings.reduce((s,b)=>s+(b.bldgPct!==''&&b.bldgPct!==undefined?pf(b.bldgPct):(ts>0?pf(b.area)/ts*100:0)),0);
   const ePctSum=S.buildings.reduce((s,b)=>s+(b.equipPct!==''&&b.equipPct!==undefined?pf(b.equipPct):(ts>0?pf(b.area)/ts*100:0)),0);
   const iPctSum=S.buildings.reduce((s,b)=>s+(b.invPct!==''&&b.invPct!==undefined?pf(b.invPct):(ts>0?pf(b.area)/ts*100:0)),0);
   const hasB=S.buildings.some(b=>b.bldgPct!==''&&b.bldgPct!==undefined);
   const hasE=S.buildings.some(b=>b.equipPct!==''&&b.equipPct!==undefined);
   const hasI=S.buildings.some(b=>b.invPct!==''&&b.invPct!==undefined);
+  // Dollar mode validation: effective values per category (include area-based defaults for blank entries)
+  const bValSum=S.buildings.reduce((s,b)=>s+(b.bldgVal!==''&&b.bldgVal!==undefined?pf(b.bldgVal):(ts>0?pf(S.totalBldg)*(pf(b.area)/ts):0)),0);
+  const eValSum=S.buildings.reduce((s,b)=>s+(b.equipVal!==''&&b.equipVal!==undefined?pf(b.equipVal):(ts>0?pf(S.totalEquip)*(pf(b.area)/ts):0)),0);
+  const iValSum=S.buildings.reduce((s,b)=>s+(b.invVal!==''&&b.invVal!==undefined?pf(b.invVal):(ts>0?pf(S.totalInv)*(pf(b.area)/ts):0)),0);
+  const hasBV=S.buildings.some(b=>b.bldgVal!==''&&b.bldgVal!==undefined);
+  const hasEV=S.buildings.some(b=>b.equipVal!==''&&b.equipVal!==undefined);
+  const hasIV=S.buildings.some(b=>b.invVal!==''&&b.invVal!==undefined);
   let distHtml=S.buildings.map((b,i)=>{
     const ba=pf(b.area),areaPct=ts>0?(ba/ts*100).toFixed(1):0;
     const bVal=bldgValue(i),bCat=bldgCatValue(i,'b'),eCat=bldgCatValue(i,'e'),iCat=bldgCatValue(i,'i');
-    if(isCustom){
+    if(isDollar){
+      const defB=ts>0?pf(S.totalBldg)*(ba/ts):0,defE=ts>0?pf(S.totalEquip)*(ba/ts):0,defI=ts>0?pf(S.totalInv)*(ba/ts):0;
+      return`<div style="display:grid;grid-template-columns:1.2fr .6fr .6fr .6fr .7fr;gap:6px;align-items:center;padding:5px 0;font-size:12px;color:var(--text);border-bottom:1px solid var(--border)">
+        <div><strong>${b.name||"Building "+(i+1)}</strong><br><span style="color:var(--dim);font-size:10px">${fN(ba)} ${aU()} (${areaPct}% area)</span></div>
+        <div class="fd" style="margin:0"><input type="number" value="${esc(b.bldgVal)}" placeholder="${fN(Math.round(defB))}" style="text-align:center;font-size:11px" oninput="setBldg(${i},'bldgVal',this.value)" onblur="setBldgR(${i},'bldgVal',this)"></div>
+        <div class="fd" style="margin:0"><input type="number" value="${esc(b.equipVal)}" placeholder="${fN(Math.round(defE))}" style="text-align:center;font-size:11px" oninput="setBldg(${i},'equipVal',this.value)" onblur="setBldgR(${i},'equipVal',this)"></div>
+        <div class="fd" style="margin:0"><input type="number" value="${esc(b.invVal)}" placeholder="${fN(Math.round(defI))}" style="text-align:center;font-size:11px" oninput="setBldg(${i},'invVal',this.value)" onblur="setBldgR(${i},'invVal',this)"></div>
+        <div style="font-size:10px;color:var(--muted);line-height:1.5">${cs()}${(ba>0?bCat/ba:0).toFixed(2)}/${aU()}<br>Total: ${fmtF(bCat+eCat+iCat)}</div>
+      </div>`;
+    }
+    if(isPct){
       return`<div style="display:grid;grid-template-columns:1.2fr .5fr .5fr .5fr .9fr;gap:6px;align-items:center;padding:5px 0;font-size:12px;color:var(--text);border-bottom:1px solid var(--border)">
         <div><strong>${b.name||"Building "+(i+1)}</strong><br><span style="color:var(--dim);font-size:10px">${fN(ba)} ${aU()} (${areaPct}% area)</span></div>
         <div class="fd" style="margin:0"><input type="number" value="${esc(b.bldgPct)}" placeholder="${areaPct}" step="0.1" min="0" max="100" style="text-align:center;font-size:11px" oninput="setBldg(${i},'bldgPct',this.value)" onblur="setBldgR(${i},'bldgPct',this)"></div>
@@ -823,16 +855,28 @@ function r1(){
     }
     return`<div style="font-size:12px;color:var(--text);padding:4px 0"><strong>${b.name||"Building "+(i+1)}</strong>: ${fN(ba)} ${aU()} (${areaPct}%) = ${fmtF(bVal)}${pf(b.value)>0?' <span style="color:var(--accent)">(override)</span>':''}</div>`;
   }).join('');
+  // Percentage mode status
   function pctCheck(sum,label,hasAny){const ok=Math.abs(sum-100)<0.1;return hasAny?`<span style="color:${ok?'var(--success)':'var(--danger)'}"><strong>${label}:</strong> ${sum.toFixed(1)}%${ok?' ✓':''}</span>`:'';}
-  const pctStatus=isCustom?`<div style="margin-top:8px;font-size:11px;display:flex;gap:16px">${pctCheck(bPctSum,'Bldg',hasB)}${pctCheck(ePctSum,'Equip',hasE)}${pctCheck(iPctSum,'Inv',hasI)}</div>${(hasB&&Math.abs(bPctSum-100)>=0.1)||(hasE&&Math.abs(ePctSum-100)>=0.1)||(hasI&&Math.abs(iPctSum-100)>=0.1)?'<div style="margin-top:4px;font-size:10px;color:var(--danger)">Each category\'s percentages should sum to 100%</div>':''}`:'';
+  const pctStatus=isPct?`<div style="margin-top:8px;font-size:11px;display:flex;gap:16px">${pctCheck(bPctSum,'Bldg',hasB)}${pctCheck(ePctSum,'Equip',hasE)}${pctCheck(iPctSum,'Inv',hasI)}</div>${(hasB&&Math.abs(bPctSum-100)>=0.1)||(hasE&&Math.abs(ePctSum-100)>=0.1)||(hasI&&Math.abs(iPctSum-100)>=0.1)?'<div style="margin-top:4px;font-size:10px;color:var(--danger)">Each category\'s percentages should sum to 100%</div>':''}':'';
+  // Dollar mode status
+  function dolCheck(sum,siteVal,label,hasAny){const ok=Math.abs(sum-siteVal)<1;return hasAny?`<span style="color:${ok?'var(--success)':'var(--danger)'}"><strong>${label}:</strong> ${fmtF(sum)} / ${fmtF(siteVal)}${ok?' ✓':''}</span>`:'';}
+  const dolStatus=isDollar?`<div style="margin-top:8px;font-size:11px;display:flex;gap:16px;flex-wrap:wrap">${dolCheck(bValSum,pf(S.totalBldg),'Bldg',hasBV)}${dolCheck(eValSum,pf(S.totalEquip),'Equip',hasEV)}${dolCheck(iValSum,pf(S.totalInv),'Inv',hasIV)}</div>${(hasBV&&Math.abs(bValSum-pf(S.totalBldg))>=1)||(hasEV&&Math.abs(eValSum-pf(S.totalEquip))>=1)||(hasIV&&Math.abs(iValSum-pf(S.totalInv))>=1)?'<div style="margin-top:4px;font-size:10px;color:var(--danger)">Each category\'s values should sum to the site total</div>':''}':'';
+  const valStatus=isPct?pctStatus:dolStatus;
+  // Mode toggle for custom weighting
+  const modeToggle=isCustom?`<div style="display:flex;gap:4px;margin-bottom:10px"><button class="bnc${isPct?' bna':''}" style="font-size:10px;padding:3px 10px" onclick="set('customDistMode','pct')">By Percentage</button><button class="bnc${isDollar?' bna':''}" style="font-size:10px;padding:3px 10px" onclick="set('customDistMode','dollar')">By Value (${cs()||'$'})</button></div>`:'';
+  const noteText=isPct?'Set each building\'s share of each value category (%). Each category should independently sum to 100%. Leave blank to default to area proportion.'
+    :isDollar?'Enter each building\'s value directly for each category. Each category should sum to the site total above. Leave blank to default to area proportion.':'';
+  const colHeader=isPct?'<div style="display:grid;grid-template-columns:1.2fr .5fr .5fr .5fr .9fr;gap:6px;padding:2px 0;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Building</div><div>% Bldg</div><div>% Equip</div><div>% Inv</div><div>Values / '+cs()+'/'+aU()+'</div></div>'
+    :isDollar?'<div style="display:grid;grid-template-columns:1.2fr .6fr .6fr .6fr .7fr;gap:6px;padding:2px 0;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Building</div><div>'+cs()+'Bldg</div><div>'+cs()+'Equip</div><div>'+cs()+'Inv</div><div>'+cs()+'/'+aU()+'</div></div>':'';
   return`<div class="cd"><h3 class="ct">Total Site Property Values</h3>
   <p style="color:var(--muted);font-size:11px;margin-bottom:10px">Enter the total reported values. They distribute to buildings proportionally by area unless you customize the distribution below.</p>
   <div class="g3">${fd("Total Building",inp("totalBldg","10,000,000","number"))}${fd("Total Equipment/M&E",inp("totalEquip","25,000,000","number"))}${fd("Total Inventory/WIP",inp("totalInv","2,000,000","number"))}</div></div>
   ${S.buildings.length>1?`<div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">Value Distribution by Building</h3></div>
   <div class="tgr" style="margin-bottom:10px"><div class="tg" onclick="set('valueDist',S.valueDist==='custom'?'area':'custom')"><div class="tgt${S.valueDist==='custom'?' on':''}"><div class="tgk"></div></div><span>Custom Value Weighting</span></div></div>
-  ${isCustom?'<div class="note">Set each building\'s share of each value category (%). For example, a warehouse might have 60% of building value but 90% of inventory. Each category should independently sum to 100%. Leave blank to default to area proportion.</div>':''}
-  ${isCustom?'<div style="display:grid;grid-template-columns:1.2fr .5fr .5fr .5fr .9fr;gap:6px;padding:2px 0;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Building</div><div>% Bldg</div><div>% Equip</div><div>% Inv</div><div>Values / $/'+aU()+'</div></div>':''}
-  ${distHtml}${pctStatus}</div>`:''}
+  ${modeToggle}
+  ${isCustom?'<div class="note">'+noteText+'</div>':''}
+  ${colHeader}
+  ${distHtml}${valStatus}</div>`:''}
   <div class="cd"><h3 class="ct">Primary Building (per ${aU()})</h3>
   <div style="margin-bottom:8px;font-size:11px;color:var(--muted)">Based on primary building area of ${fN(v.a)} ${aU()}</div>
   <div class="g3">${vc("Building",cs()+v.bpsf.toFixed(2),fmtF(v.tb))}${vc("Equipment",cs()+v.epsf.toFixed(2),fmtF(v.te))}${vc("Inv/WIP",cs()+v.ipsf.toFixed(2),fmtF(v.ti))}</div></div>`;
