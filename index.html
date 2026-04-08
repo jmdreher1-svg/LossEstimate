@@ -367,7 +367,7 @@ function calcMFL(){
   S.buildings.forEach((b,i)=>{if(i===S.primaryIdx)return;
     const req=getSepReq(primaryConst(),b.construction||primaryConst(),S.hazardClass,so);
     const act=pf(b.separation);const bv=bldgValue(i);
-    const info={idx:i,name:b.name||("Building "+(i+1)),area:pf(b.area),req,act,value:bv,construction:b.construction};
+    const info={idx:i,name:b.name||("Building "+(i+1)),area:pf(b.area),req,act,value:bv,construction:b.construction,sepRaw:b.separation};
     if(act>=req&&act>0)exclB.push(info);else inclB.push(info);
   });
 
@@ -710,7 +710,7 @@ function genN(){
     if(origFloors>2&&primaryConst()!=="fr")m+=`\nNote: Primary building is non-Fire Resistive with ${origFloors} stories (Table 3a Note 2). Required separation increased by ${fromFt(10*(origFloors-2))} ${dU()} (+${fromFt(10)} ${dU()} per story above 2).\n`;
     m+=`\n`;
     mfl.exclB.forEach(b=>{m+=`  ${b.name}: ${fN(b.act)} ${dU()} actual vs ${b.req} ${dU()} required. Adequate separation, ${fmtF(b.value)} subtracted from MFL.\n`;});
-    mfl.inclB.forEach(b=>{m+=`  ${b.name}: ${pf(b.act)>0?fN(b.act)+" "+dU()+" actual":"separation not specified"} vs ${b.req} ${dU()} required. Inadequate separation, ${fmtF(b.value)} remains in MFL.\n`;});
+    mfl.inclB.forEach(b=>{m+=`  ${b.name}: ${pf(b.act)>0?fN(b.act)+" "+dU()+" actual":b.sepRaw==='0'?"no separation":"separation not specified"} vs ${b.req} ${dU()} required. Inadequate separation, ${fmtF(b.value)} remains in MFL.\n`;});
   }
 
   m+=`\n  Total Site PD:         ${fmtF(mfl.sitePD)}`;
@@ -970,7 +970,7 @@ function r4(){
     <div class="fd" style="margin:0"><input type="number" value="${esc(b.value)}" placeholder="auto" oninput="setBldg(${i},'value',this.value)" onblur="setBldgR(${i},'value',this)"></div>
     <div style="font-size:11px;padding-bottom:8px;color:var(--muted)">Req: ${req} ${dU()}</div>
     </div>
-    ${act>0?`<div class="${ok?'sep-ok':'sep-bad'}" style="margin-bottom:8px">${ok?'✓':'✗'} ${fN(act)} ${dU()} actual vs ${req} ${dU()} required. ${ok?fmtF(bldgValue(i))+' excluded from MFL':fmtF(bldgValue(i))+' included in MFL at 100%'}</div>`:''}`;
+    ${act>0?`<div class="${ok?'sep-ok':'sep-bad'}" style="margin-bottom:8px">${ok?'✓':'✗'} ${fN(act)} ${dU()} actual vs ${req} ${dU()} required. ${ok?fmtF(bldgValue(i))+' excluded from MFL':fmtF(bldgValue(i))+' included in MFL at 100%'}</div>`:b.separation==='0'?`<div class="sep-bad" style="margin-bottom:8px">✗ No separation — ${fmtF(bldgValue(i))} included in MFL at 100%</div>`:''}`;
   });
 
   return`<div class="cd"><h3 class="ct">MFL Configuration</h3>
