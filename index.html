@@ -802,10 +802,13 @@ function r0(){
 function r1(){
   const v=gv(),ts=totalSqft();
   const isCustom=S.valueDist==="custom";
-  // Calculate sum of custom percentages per category for validation
-  const bPctSum=S.buildings.reduce((s,b)=>s+pf(b.bldgPct),0);
-  const ePctSum=S.buildings.reduce((s,b)=>s+pf(b.equipPct),0);
-  const iPctSum=S.buildings.reduce((s,b)=>s+pf(b.invPct),0);
+  // Calculate sum of effective percentages per category for validation (include area-based defaults for blank entries)
+  const bPctSum=S.buildings.reduce((s,b)=>s+(b.bldgPct!==''&&b.bldgPct!==undefined?pf(b.bldgPct):(ts>0?pf(b.area)/ts*100:0)),0);
+  const ePctSum=S.buildings.reduce((s,b)=>s+(b.equipPct!==''&&b.equipPct!==undefined?pf(b.equipPct):(ts>0?pf(b.area)/ts*100:0)),0);
+  const iPctSum=S.buildings.reduce((s,b)=>s+(b.invPct!==''&&b.invPct!==undefined?pf(b.invPct):(ts>0?pf(b.area)/ts*100:0)),0);
+  const hasB=S.buildings.some(b=>b.bldgPct!==''&&b.bldgPct!==undefined);
+  const hasE=S.buildings.some(b=>b.equipPct!==''&&b.equipPct!==undefined);
+  const hasI=S.buildings.some(b=>b.invPct!==''&&b.invPct!==undefined);
   let distHtml=S.buildings.map((b,i)=>{
     const ba=pf(b.area),areaPct=ts>0?(ba/ts*100).toFixed(1):0;
     const bVal=bldgValue(i),bCat=bldgCatValue(i,'b'),eCat=bldgCatValue(i,'e'),iCat=bldgCatValue(i,'i');
@@ -820,8 +823,8 @@ function r1(){
     }
     return`<div style="font-size:12px;color:var(--text);padding:4px 0"><strong>${b.name||"Building "+(i+1)}</strong>: ${fN(ba)} ${aU()} (${areaPct}%) = ${fmtF(bVal)}${pf(b.value)>0?' <span style="color:var(--accent)">(override)</span>':''}</div>`;
   }).join('');
-  function pctCheck(sum,label){const ok=Math.abs(sum-100)<0.1;return sum>0?`<span style="color:${ok?'var(--success)':'var(--danger)'}"><strong>${label}:</strong> ${sum.toFixed(1)}%${ok?' ✓':''}</span>`:'';}
-  const pctStatus=isCustom?`<div style="margin-top:8px;font-size:11px;display:flex;gap:16px">${pctCheck(bPctSum,'Bldg')}${pctCheck(ePctSum,'Equip')}${pctCheck(iPctSum,'Inv')}</div>${(bPctSum>0&&Math.abs(bPctSum-100)>=0.1)||(ePctSum>0&&Math.abs(ePctSum-100)>=0.1)||(iPctSum>0&&Math.abs(iPctSum-100)>=0.1)?'<div style="margin-top:4px;font-size:10px;color:var(--danger)">Each category\'s percentages should sum to 100%</div>':''}`:'';
+  function pctCheck(sum,label,hasAny){const ok=Math.abs(sum-100)<0.1;return hasAny?`<span style="color:${ok?'var(--success)':'var(--danger)'}"><strong>${label}:</strong> ${sum.toFixed(1)}%${ok?' ✓':''}</span>`:'';}
+  const pctStatus=isCustom?`<div style="margin-top:8px;font-size:11px;display:flex;gap:16px">${pctCheck(bPctSum,'Bldg',hasB)}${pctCheck(ePctSum,'Equip',hasE)}${pctCheck(iPctSum,'Inv',hasI)}</div>${(hasB&&Math.abs(bPctSum-100)>=0.1)||(hasE&&Math.abs(ePctSum-100)>=0.1)||(hasI&&Math.abs(iPctSum-100)>=0.1)?'<div style="margin-top:4px;font-size:10px;color:var(--danger)">Each category\'s percentages should sum to 100%</div>':''}`:'';
   return`<div class="cd"><h3 class="ct">Total Site Property Values</h3>
   <p style="color:var(--muted);font-size:11px;margin-bottom:10px">Enter the total reported values. They distribute to buildings proportionally by area unless you customize the distribution below.</p>
   <div class="g3">${fd("Total Building",inp("totalBldg","10,000,000","number"))}${fd("Total Equipment/M&E",inp("totalEquip","25,000,000","number"))}${fd("Total Inventory/WIP",inp("totalInv","2,000,000","number"))}</div></div>
