@@ -22,13 +22,30 @@ const APL_SC = {
 const MFL_T = {
   "Hospital/Medical":{fr:{b:10,e:60,i:100,bi:6},hnc:{b:30,e:80,i:100,bi:9},lnc:{b:30,e:80,i:100,bi:9},comb:{b:100,e:100,i:100,bi:18}},
   "Office":{fr:{b:40,e:40,i:50,bi:4.5},hnc:{b:50,e:40,i:50,bi:4.5},lnc:{b:60,e:50,i:60,bi:4.5},comb:{b:100,e:100,i:100,bi:7.5}},
+  "Hydroelectric Power":{fr:{b:5,e:20,i:10,bi:12},hnc:{b:5,e:20,i:20,bi:12},lnc:{b:30,e:20,i:20,bi:12},comb:{b:100,e:100,i:100,bi:18}},
   "Data Center/Telecom":{fr:{b:10,e:30,i:30,bi:3},hnc:{b:10,e:30,i:30,bi:3},lnc:{b:30,e:30,i:30,bi:6},comb:{b:100,e:100,i:100,bi:18}},
-  "Warehousing":{fr:{b:70,e:90,i:90,bi:9},hnc:{b:80,e:90,i:90,bi:12},lnc:{b:100,e:100,i:100,bi:12},comb:{b:100,e:100,i:100,bi:12}},
+  "Machine Shop/Light Metal":{fr:{b:10,e:20,i:20,bi:3},hnc:{b:10,e:20,i:20,bi:3},lnc:{b:30,e:30,i:30,bi:6},comb:{b:100,e:100,i:100,bi:12}},
+  "Mineral Products":{fr:{b:10,e:20,i:10,bi:6},hnc:{b:10,e:20,i:20,bi:6},lnc:{b:30,e:30,i:30,bi:9},comb:{b:100,e:100,i:75,bi:12}},
+  "Beverage Processing":{fr:{b:40,e:40,i:100,bi:9},hnc:{b:50,e:40,i:100,bi:12},lnc:{b:60,e:50,i:100,bi:12},comb:{b:100,e:100,i:100,bi:18}},
+  "Retail (non Big Box)":{fr:{b:50,e:60,i:100,bi:10.5},hnc:{b:70,e:70,i:100,bi:10.5},lnc:{b:80,e:70,i:100,bi:10.5},comb:{b:100,e:100,i:100,bi:10.5}},
+  "Food Processing":{fr:{b:50,e:50,i:100,bi:10.5},hnc:{b:60,e:60,i:100,bi:12},lnc:{b:70,e:60,i:100,bi:12},comb:{b:100,e:100,i:100,bi:12}},
+  "Electronic/Electrical Mfg":{fr:{b:50,e:60,i:100,bi:9},hnc:{b:70,e:70,i:100,bi:12},lnc:{b:80,e:70,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},
+  "Metal Smelting/Foundry":{fr:{b:50,e:60,i:40,bi:18},hnc:{b:70,e:80,i:50,bi:18},lnc:{b:80,e:80,i:80,bi:18},comb:{b:100,e:100,i:100,bi:18}},
+  "Big Box Retail":{fr:{b:50,e:60,i:60,bi:7.5},hnc:{b:70,e:80,i:80,bi:10.5},lnc:{b:90,e:80,i:90,bi:10.5},comb:{b:100,e:100,i:100,bi:10.5}},
+  "Box Mfg/Printing":{fr:{b:50,e:70,i:100,bi:10.5},hnc:{b:70,e:80,i:100,bi:10.5},lnc:{b:90,e:80,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},
+  "Vehicle Manufacturing":{fr:{b:50,e:50,i:50,bi:12},hnc:{b:60,e:60,i:60,bi:15},lnc:{b:70,e:60,i:60,bi:18},comb:{b:100,e:100,i:100,bi:24}},
+  "Brewery/Distillery/Winery":{fr:{b:50,e:60,i:100,bi:12},hnc:{b:70,e:70,i:100,bi:12},lnc:{b:80,e:70,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},
   "Wood/Plastic Products":{fr:{b:70,e:90,i:100,bi:18},hnc:{b:80,e:90,i:100,bi:18},lnc:{b:90,e:90,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},
-  "Chemical Processing":{fr:{b:60,e:70,i:100,bi:18},hnc:{b:70,e:80,i:100,bi:18},lnc:{b:80,e:80,i:100,bi:18},comb:{b:100,e:100,i:100,bi:24}},
+  "Cotton Mill/Sugar Mill":{fr:{b:80,e:100,i:100,bi:18},hnc:{b:90,e:100,i:100,bi:18},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},
+  "Rubber Manufacturing":{fr:{b:70,e:90,i:100,bi:12},hnc:{b:80,e:90,i:100,bi:18},lnc:{b:90,e:90,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},
+  "Warehousing":{fr:{b:70,e:90,i:90,bi:9},hnc:{b:80,e:90,i:90,bi:12},lnc:{b:100,e:100,i:100,bi:12},comb:{b:100,e:100,i:100,bi:12}},
+  "Warehousing (Refrigerated)":{fr:{b:70,e:90,i:100,bi:9},hnc:{b:80,e:90,i:100,bi:12},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},
+  "Aircraft Hangar":{fr:{b:90,e:100,i:100,bi:18},hnc:{b:100,e:100,i:100,bi:18},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},
+  "Pharma/Cosmetics/Drugs":{fr:{b:80,e:100,i:100,bi:24},hnc:{b:90,e:100,i:100,bi:24},lnc:{b:100,e:100,i:100,bi:24},comb:{b:100,e:100,i:100,bi:24}},
   "Semiconductor Mfg":{fr:{b:20,e:90,i:100,bi:24},hnc:{b:20,e:90,i:100,bi:24},lnc:{b:30,e:90,i:100,bi:24},comb:{b:100,e:100,i:100,bi:24}},
+  "Grain Elevator/Milling":{fr:{b:90,e:100,i:100,bi:18},hnc:{b:100,e:100,i:100,bi:18},lnc:{b:100,e:100,i:100,bi:18},comb:{b:100,e:100,i:100,bi:18}},
   "Hotel/Residential/School":{fr:{b:50,e:50,i:70,bi:10.5},hnc:{b:60,e:60,i:70,bi:10.5},lnc:{b:70,e:60,i:80,bi:10.5},comb:{b:100,e:100,i:100,bi:10.5}},
-  "Food Processing":{fr:{b:50,e:50,i:100,bi:10.5},hnc:{b:60,e:60,i:100,bi:12},lnc:{b:70,e:60,i:100,bi:12},comb:{b:100,e:100,i:100,bi:12}}
+  "Chemical Processing":{fr:{b:60,e:70,i:100,bi:18},hnc:{b:70,e:80,i:100,bi:18},lnc:{b:80,e:80,i:100,bi:18},comb:{b:100,e:100,i:100,bi:24}}
 };
 
 const MFL_SEP = {
@@ -38,6 +55,23 @@ const MFL_SEP = {
 };
 
 const CL = {fr:"Fire Resistive",hnc:"Heavy Noncombustible",lnc:"Light Noncombustible",comb:"Combustible"};
+
+const STORAGE_OCCS = ["Warehousing","Warehousing (Refrigerated)","Big Box Retail"];
+
+// TABLE 5 — Maximum % Building Damage that Defaults to Full Structure Loss
+const MFL_T5 = [
+  {maxSqft:50000,lnc:60,hnc:60,fr:60},
+  {maxSqft:200000,lnc:65,hnc:70,fr:70},
+  {maxSqft:500000,lnc:70,hnc:75,fr:75},
+  {maxSqft:1000000,lnc:80,hnc:85,fr:85},
+  {maxSqft:Infinity,lnc:90,hnc:90,fr:90}
+];
+function getT5Thresh(areaSqft,constType){
+  if(constType==="comb")return 100;
+  const k=constType==="fr"?"fr":constType==="hnc"?"hnc":"lnc";
+  for(const row of MFL_T5){if(areaSqft<row.maxSqft)return row[k];}
+  return 90;
+}
 
 // ======================== STATE (default reset values) ========================
 
@@ -64,6 +98,7 @@ function resetS() {
     fw4hr:false, fwArea:"",
     isHighRise:false, stories:"", hrFireFloors:"1", topFloorBelowFD:true, extSpreadPossible:false,
     extType:"none", floorToWindow:"", windowHeight:"",
+    aplDmgOverrides:{},
   };
 }
 
@@ -81,6 +116,13 @@ function defDA(){return S.units==="metric"?140:1500}
 function rLE(v){return Math.round(v/10000)*10000}
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;")}
 function pct(v){return(v*100).toFixed(0)+"%"}
+
+// APL damage override helpers
+function aplDmg(sc,zone,key,baseVal){
+  const k=sc+'_'+zone+'_'+key;
+  if(S.aplDmgOverrides[k]!==undefined)return Math.max(0,Math.min(1,S.aplDmgOverrides[k]));
+  return baseVal;
+}
 
 // Building helpers
 function pb(){return S.buildings[S.primaryIdx]||S.buildings[0]||{area:"",construction:"hnc",occupancy:"Warehousing"}}
@@ -164,7 +206,7 @@ function calcAPL(){
   let pB=0,pE=0,pI=0,bi="";
   if(sc&&APL_SC[sc]&&v.a>0){const s=APL_SC[sc],sys=S.sprinklerType==="dry"&&s.dry?s.dry:s.wet;bi=s.bi;
     const rA=x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(pf(S.designArea)||defDA(),v.a);if(x==="2x")return Math.min((pf(S.designArea)||defDA())*2,v.a);if(x==="5x")return Math.min((pf(S.designArea)||defDA())*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0};
-    ["fire","water","smoke"].forEach(t=>{const d=sys[t],ar=rA(d.a);pB+=rLE((v.tb/v.a)*d.b*ar);pE+=rLE((v.te/v.a)*d.e*ar);pI+=rLE((v.ti/v.a)*d.i*ar);});}
+    ["fire","water","smoke"].forEach(t=>{const d=sys[t],ar=rA(d.a);pB+=rLE((v.tb/v.a)*aplDmg(sc,t,'b',d.b)*ar);pE+=rLE((v.te/v.a)*aplDmg(sc,t,'e',d.e)*ar);pI+=rLE((v.ti/v.a)*aplDmg(sc,t,'i',d.i)*ar);});}
   return{sc,eq,R,pB,pE,pI,pT:pB+pE+pI,bi};
 }
 
@@ -197,32 +239,20 @@ function calcMFL(){
   const atRiskEquip=rLE(siteTe*atRiskFrac);
   const atRiskInv=rLE(siteTi*atRiskFrac);
 
-  // High-rise MFL: floor-by-floor damage calculation; Table 4 % used as condemnation threshold
-  let pB,pE,pI,hrMeta={isHR:false};
-  if(S.isHighRise){
-    const nFloors=Math.max(pf(S.stories)||1,1);
-    if(S.extSpreadPossible){
-      pB=atRiskBldg;pE=atRiskEquip;pI=atRiskInv;
-      hrMeta={isHR:true,extSpread:true,nFloors,condemned:true,bldgDmgPct:100,contsFrac:1};
-    } else {
-      const fireF=Math.min(2,nFloors);
-      const smokeF=Math.min(4,Math.max(nFloors-fireF,0));
-      const waterF=Math.min(6,nFloors);
-      const bldgDmgFrac=fireF/nFloors+(smokeF/nFloors)*0.20;
-      const bldgDmgPct=bldgDmgFrac*100;
-      const condemned=bldgDmgPct>=d.b;
-      pB=condemned?atRiskBldg:rLE(atRiskBldg*bldgDmgFrac);
-      const contsFrac=Math.min(fireF/nFloors+(smokeF/nFloors)*0.20+(waterF/nFloors)*0.15,1);
-      pE=rLE(atRiskEquip*contsFrac);pI=rLE(atRiskInv*contsFrac);
-      hrMeta={isHR:true,extSpread:false,nFloors,fireF,smokeF,waterF,bldgDmgFrac,bldgDmgPct,condemned,condemnThresh:d.b,contsFrac};
-    }
-  } else {
-    pB=rLE(atRiskBldg*(d.b/100));pE=rLE(atRiskEquip*(d.e/100));pI=rLE(atRiskInv*(d.i/100));
-  }
+  // Apply Table 4 damage percentages
+  let pE=rLE(atRiskEquip*(d.e/100)),pI=rLE(atRiskInv*(d.i/100));
+
+  // Table 5 — condemnation check: if Table 4 building damage % >= threshold, building is condemned (100% loss)
+  const areaSqft=S.units==="metric"?a/0.0929:a;
+  const t5Thresh=getT5Thresh(areaSqft,constKey);
+  const condemned=d.b>=t5Thresh;
+  let pB=condemned?rLE(atRiskBldg):rLE(atRiskBldg*(d.b/100));
+  const effectiveBP=condemned?100:d.b;
+
   const pT=Math.max(pB+pE+pI,0);
 
   const biM=d.bi;
-  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:d.b,eP:d.e,iP:d.i,hrMeta};
+  return{biM,sitePD,fwReduction:rLE(fwReduction),exclPD:rLE(exclPD),pT,pB,pE,pI,bV:rLE(by/12*biM),mflA,hasFW,exclB,inclB,atRiskTotal:rLE(atRiskTotal),atRiskBldg,atRiskEquip,atRiskInv,bP:effectiveBP,eP:d.e,iP:d.i,t5Thresh,condemned,t4BldgPct:d.b};
 }
 
 // Hypothetical APL scenario (for deficient+no alarms PML)
@@ -306,17 +336,12 @@ function calcPML(){
     const aplFA=(x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0})(sys.fire.a);
     const sf=aplFA>0?pmlFA/aplFA:1;
     ["fire","water","smoke"].forEach(t=>{const zd=sys[t];const azA=(x=>{if(typeof x==="number")return Math.min(x,v.a);if(x==="design")return Math.min(designA,v.a);if(x==="2x")return Math.min(designA*2,v.a);if(x==="5x")return Math.min(designA*5,v.a);if(x==="comp")return Math.min(pf(S.compArea)||v.a,v.a);return 0})(zd.a);
-      const pzA=Math.min(Math.round(azA*sf),v.a);const bD=rLE((v.tb/v.a)*zd.b*pzA),eD=rLE((v.te/v.a)*zd.e*pzA),iD=rLE((v.ti/v.a)*zd.i*pzA);
-      pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:azA,pmlA:pzA,bPct:zd.b,ePct:zd.e,iPct:zd.i,bD,eD,iD});});}
+      const pzA=Math.min(Math.round(azA*sf),v.a);const eb=aplDmg(apl.sc,t,'b',zd.b),ee=aplDmg(apl.sc,t,'e',zd.e),ei=aplDmg(apl.sc,t,'i',zd.i);const bD=rLE((v.tb/v.a)*eb*pzA),eD=rLE((v.te/v.a)*ee*pzA),iD=rLE((v.ti/v.a)*ei*pzA);
+      pB+=bD;pE+=eD;pI+=iD;zones.push({type:t,aplA:azA,pmlA:pzA,bPct:eb,ePct:ee,iPct:ei,bD,eD,iD});});}
   else{const r=v.a>0?pmlFA/v.a:1;pB=rLE(v.tb*(d.b/100)*r);pE=rLE(v.te*(d.e/100)*r);pI=rLE(v.ti*(d.i/100)*r);}
   let pT=pB+pE+pI,aplFloor=false;if(pT<apl.pT){aplFloor=true;pT=apl.pT;}
   return{biM:d.bi,pB,pE,pI,pT,bV:rLE(v.by/12*d.bi),eq:false,rsn:"",aplFloor,pmlFA,zones,bP:d.b,eP:d.e,iP:d.i};
 }
-
-// High rise helpers
-function hrFF(){return pf(S.hrFireFloors)||1}
-function hrSF(){const f=hrFF();return f===1?2:f===2?3:4}
-function hrWF(){const f=hrFF();return f===1?2:f===2?5:6}
 
 // ======================== TESTS ========================
 
@@ -1044,15 +1069,19 @@ describe('calcMFL() - MFL calculation', () => {
     expect(r.sitePD).toBe(0);
   });
 
-  test('single building, no separation, no fire wall - applies Table 5 percentages', () => {
-    setupMFL(); // Warehousing HNC: bldg=10M, equip=5M, inv=2M
+  test('single building, no separation, no fire wall - applies Table 4/5 percentages', () => {
+    setupMFL(); // Warehousing HNC: bldg=10M, equip=5M, inv=2M, 100K sqft
     const r = calcMFL();
     expect(r.sitePD).toBe(17000000);
-    // Table 5: Warehousing HNC = b:80, e:90, i:90 -> pT < sitePD
-    expect(r.bP).toBe(80);
+    // Table 4: Warehousing HNC = b:80, e:90, i:90
+    // Table 5: 100K sqft HNC threshold = 70; 80 >= 70 → condemned → bP=100
+    expect(r.t4BldgPct).toBe(80);
+    expect(r.t5Thresh).toBe(70);
+    expect(r.condemned).toBe(true);
+    expect(r.bP).toBe(100); // effectiveBP=100 due to condemnation
     expect(r.eP).toBe(90);
     expect(r.iP).toBe(90);
-    expect(r.pB).toBe(rLE(10000000 * 0.80)); // 8,000,000
+    expect(r.pB).toBe(rLE(10000000)); // 10,000,000 (condemned = full building loss)
     expect(r.pE).toBe(rLE(5000000 * 0.90));  // 4,500,000
     expect(r.pI).toBe(rLE(2000000 * 0.90));  // 1,800,000
     expect(r.pT).toBe(r.pB + r.pE + r.pI);
@@ -1116,9 +1145,11 @@ describe('calcMFL() - MFL calculation', () => {
     const r = calcMFL();
     expect(r.inclB.length).toBe(1);
     expect(r.exclB.length).toBe(0);
-    // Nothing excluded from at-risk pool, but Table 5 applies (HNC Warehousing b=80)
+    // Nothing excluded from at-risk pool
     expect(r.atRiskTotal).toBe(r.sitePD);
-    expect(r.pT).toBeLessThan(r.sitePD); // Table 5 reduces from 100%
+    // Warehousing HNC 100K sqft: Table 5 condemns (80 >= 70) → bP=100, eP=90, iP=90
+    // With bldg-only site (equip=0,inv=0): pT = sitePD (100% building loss)
+    expect(r.pT).toBe(r.sitePD);
     expect(r.pT).toBeGreaterThan(0);
   });
 
@@ -1247,37 +1278,6 @@ describe('calcPML() - PML calculation', () => {
     S.totalBldg = '10000000';
     const r = calcPML();
     expect(r.pT).toBe(0);
-  });
-});
-
-// --------------- High Rise helpers ---------------
-describe('High Rise helpers (hrFF, hrSF, hrWF)', () => {
-  test('1 fire floor from input -> 2 smoke floors above, 2 water floors below', () => {
-    S.hrFireFloors = '1';
-    expect(hrFF()).toBe(1);
-    expect(hrSF()).toBe(2);
-    expect(hrWF()).toBe(2);
-  });
-
-  test('2 fire floors from input -> 3 smoke floors above, 5 water floors below', () => {
-    S.hrFireFloors = '2';
-    expect(hrFF()).toBe(2);
-    expect(hrSF()).toBe(3);
-    expect(hrWF()).toBe(5);
-  });
-
-  test('3 fire floors from input -> 4 smoke floors above, 6 water floors below', () => {
-    S.hrFireFloors = '3';
-    expect(hrFF()).toBe(3);
-    expect(hrSF()).toBe(4);
-    expect(hrWF()).toBe(6);
-  });
-
-  test('defaults to 1 fire floor when hrFireFloors is empty', () => {
-    S.hrFireFloors = '';
-    expect(hrFF()).toBe(1);
-    expect(hrSF()).toBe(2);
-    expect(hrWF()).toBe(2);
   });
 });
 
@@ -1535,104 +1535,6 @@ describe('calcAPL() - storage with Table 1B deficiencies', () => {
   });
 });
 
-// --------------- calcMFL() high-rise scenarios ---------------
-describe('calcMFL() - high-rise MFL floor-by-floor', () => {
-  function setupHR(stories, occ = 'Office', ct = 'fr') {
-    S.buildings[0].area = '50000';
-    S.buildings[0].construction = ct;
-    S.buildings[0].occupancy = occ;
-    S.totalBldg = '20000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
-    S.isHighRise = true;
-    S.stories = String(stories);
-    S.extSpreadPossible = false;
-  }
-
-  test('exterior spread = total loss of all at-risk property', () => {
-    setupHR(20);
-    S.extSpreadPossible = true;
-    const r = calcMFL();
-    expect(r.pB).toBe(r.atRiskBldg);
-    expect(r.pE).toBe(r.atRiskEquip);
-    expect(r.pI).toBe(r.atRiskInv);
-    expect(r.hrMeta.condemned).toBe(true);
-    expect(r.hrMeta.extSpread).toBe(true);
-  });
-
-  test('no ext spread, short building (3 floors) → FR Office condemned (73% >= 40%)', () => {
-    setupHR(3); // Office FR: condemnThresh = 40%
-    const r = calcMFL();
-    expect(r.hrMeta.condemned).toBe(true);
-    expect(r.pB).toBe(r.atRiskBldg);     // full building loss
-    expect(r.hrMeta.bldgDmgPct).toBeGreaterThanOrEqual(40);
-  });
-
-  test('no ext spread, tall building (20 floors) → FR Office NOT condemned (14% < 40%)', () => {
-    setupHR(20); // 2/20 + 4/20*0.2 = 10% + 4% = 14% < 40%
-    const r = calcMFL();
-    expect(r.hrMeta.condemned).toBe(false);
-    expect(r.pB).toBeLessThan(r.atRiskBldg);
-    expect(r.hrMeta.bldgDmgPct).toBeLessThan(40);
-  });
-
-  test('no ext spread, 10-floor FR Office: bldgDmgPct ≈ 28%', () => {
-    setupHR(10);
-    const r = calcMFL();
-    // fireF=2/10=20%, smokeF=min(4,8)/10*20%=8% → total 28%
-    expect(r.hrMeta.bldgDmgPct).toBeCloseTo(28, 1);
-    expect(r.hrMeta.condemned).toBe(false); // 28 < 40
-  });
-
-  test('no ext spread, 5-floor Warehousing HNC: 2/5*100+3/5*20=40+12=52% >= 80% threshold → condemned', () => {
-    // Warehousing HNC: b=80%; 5 floors: fireF=2,smokeF=3 → dmg=(2/5)*100+(3/5)*20=40+12=52% < 80
-    setupHR(5, 'Warehousing', 'hnc');
-    const r = calcMFL();
-    // 52% < 80% threshold → not condemned
-    expect(r.hrMeta.condemned).toBe(false);
-    expect(r.hrMeta.bldgDmgPct).toBeCloseTo(52, 1);
-  });
-
-  test('single-floor high-rise: fireF=1, smokeF=0, waterF=1', () => {
-    setupHR(1);
-    const r = calcMFL();
-    expect(r.hrMeta.fireF).toBe(1);
-    expect(r.hrMeta.smokeF).toBe(0);
-    expect(r.hrMeta.waterF).toBe(1);
-    expect(r.hrMeta.condemned).toBe(true); // 100% building damage
-  });
-
-  test('high-rise pT > 0 for populated values', () => {
-    setupHR(15);
-    expect(calcMFL().pT).toBeGreaterThan(0);
-  });
-
-  test('high-rise hrMeta populated with correct floor counts for 10-floor', () => {
-    setupHR(10);
-    const r = calcMFL();
-    expect(r.hrMeta.isHR).toBe(true);
-    expect(r.hrMeta.nFloors).toBe(10);
-    expect(r.hrMeta.fireF).toBe(2);
-    expect(r.hrMeta.smokeF).toBe(4);
-    expect(r.hrMeta.waterF).toBe(6);
-  });
-
-  test('high-rise 2-floor: smokeF capped to 0 above remaining floors', () => {
-    setupHR(2); // nFloors=2, fireF=min(2,2)=2, smokeF=min(4,max(0,0))=0
-    const r = calcMFL();
-    expect(r.hrMeta.fireF).toBe(2);
-    expect(r.hrMeta.smokeF).toBe(0);
-  });
-
-  test('high-rise non-condemned: contents damage uses fire+smoke+water blend', () => {
-    setupHR(20); // 14% bldg, not condemned
-    const r = calcMFL();
-    // contsFrac = fireF/20 + smokeF/20*0.20 + waterF/20*0.15
-    //           = 2/20 + 4/20*0.2 + 6/20*0.15 = 0.10+0.04+0.045 = 0.185
-    expect(r.hrMeta.contsFrac).toBeCloseTo(0.185, 3);
-    expect(r.pE).toBe(rLE(r.atRiskEquip * r.hrMeta.contsFrac));
-    expect(r.pI).toBe(rLE(r.atRiskInv * r.hrMeta.contsFrac));
-  });
-});
-
 // --------------- calcMFL() all occupancies ---------------
 describe('calcMFL() - all MFL_T occupancies produce valid results', () => {
   function setupOcc(occ, ct = 'fr') {
@@ -1643,28 +1545,45 @@ describe('calcMFL() - all MFL_T occupancies produce valid results', () => {
   }
 
   Object.keys(MFL_T).forEach(occ => {
-    test(`${occ} / FR → pT > 0, percentages match table`, () => {
+    test(`${occ} / FR → pT > 0, Table 4 stored in t4BldgPct, Table 5 condemnation applied`, () => {
       setupOcc(occ, 'fr');
       const r = calcMFL();
       expect(r.pT).toBeGreaterThan(0);
-      expect(r.bP).toBe(MFL_T[occ].fr.b);
+      expect(r.t4BldgPct).toBe(MFL_T[occ].fr.b);
       expect(r.eP).toBe(MFL_T[occ].fr.e);
       expect(r.iP).toBe(MFL_T[occ].fr.i);
+      // Table 5: 100K sqft FR threshold = 70; if Table 4 bldg % >= 70 → condemned → bP=100
+      const t5 = getT5Thresh(100000, 'fr');
+      if (MFL_T[occ].fr.b >= t5) {
+        expect(r.condemned).toBe(true);
+        expect(r.bP).toBe(100);
+      } else {
+        expect(r.condemned).toBe(false);
+        expect(r.bP).toBe(MFL_T[occ].fr.b);
+      }
     });
 
-    test(`${occ} / HNC → pT > 0, percentages match table`, () => {
+    test(`${occ} / HNC → pT > 0, Table 5 condemnation applied`, () => {
       setupOcc(occ, 'hnc');
       const r = calcMFL();
       expect(r.pT).toBeGreaterThan(0);
-      expect(r.bP).toBe(MFL_T[occ].hnc.b);
+      expect(r.t4BldgPct).toBe(MFL_T[occ].hnc.b);
+      const t5 = getT5Thresh(100000, 'hnc');
+      if (MFL_T[occ].hnc.b >= t5) {
+        expect(r.condemned).toBe(true);
+        expect(r.bP).toBe(100);
+      } else {
+        expect(r.condemned).toBe(false);
+        expect(r.bP).toBe(MFL_T[occ].hnc.b);
+      }
     });
 
-    test(`${occ} / Combustible → building % = 100`, () => {
+    test(`${occ} / Combustible → building % = 100, others match table`, () => {
       setupOcc(occ, 'comb');
       const r = calcMFL();
       expect(r.bP).toBe(100);
-      expect(r.eP).toBe(100);
-      expect(r.iP).toBe(100);
+      expect(r.eP).toBe(MFL_T[occ].comb.e);
+      expect(r.iP).toBe(MFL_T[occ].comb.i);
     });
   });
 });
@@ -2068,41 +1987,6 @@ describe('Integration: APL <= PML <= MFL across all occupancies', () => {
   });
 });
 
-// --------------- Integration: high-rise complete scenario ---------------
-describe('Integration: high-rise scenario consistency', () => {
-  function hrSetup() {
-    S.buildings[0].area = '50000';
-    S.buildings[0].occupancy = 'Office';
-    S.buildings[0].construction = 'fr';
-    S.totalBldg = '20000000'; S.totalEquip = '8000000'; S.totalInv = '3000000';
-    S.isHighRise = true; S.stories = '15';
-    S.isStorage = false; S.isSensitive = false; S.hazardClass = 'ordinary';
-    S.sprinklerAdequate = 'adequate'; S.designArea = '2000';
-    S.fdTime = 'prompt'; S.biYearly = '5000000';
-  }
-
-  test('high-rise: APL <= MFL', () => {
-    hrSetup();
-    const apl = calcAPL(), mfl = calcMFL();
-    const aplPD = apl.eq ? calcPML().pT : apl.pT;
-    expect(aplPD).toBeLessThanOrEqual(mfl.pT);
-  });
-
-  test('high-rise: PML <= MFL', () => {
-    hrSetup();
-    const pml = calcPML(), mfl = calcMFL();
-    expect(pml.pT).toBeLessThanOrEqual(mfl.pT);
-  });
-
-  test('high-rise exterior spread: MFL = total at-risk', () => {
-    hrSetup();
-    S.extSpreadPossible = true;
-    const mfl = calcMFL();
-    expect(mfl.pB).toBe(mfl.atRiskBldg);
-    expect(mfl.pT).toBe(mfl.atRiskTotal);
-  });
-});
-
 // --------------- Integration: combustible construction ---------------
 describe('Integration: combustible construction site', () => {
   function combSetup() {
@@ -2457,5 +2341,404 @@ describe('Integration: fire wall + multi-building separation', () => {
       const info = pmlExpSepInfo();
       expect(info.nearest.name).toBe('adjacent'); // 200 < 500
     });
+  });
+});
+
+// ======================== REV 0.9 — TABLE 5 / APL OVERRIDES / NEW OCCUPANCIES ========================
+
+// --------------- getT5Thresh() ---------------
+describe('getT5Thresh() - Table 5 condemnation thresholds', () => {
+  test('combustible always returns 100 regardless of area', () => {
+    expect(getT5Thresh(10000, 'comb')).toBe(100);
+    expect(getT5Thresh(100000, 'comb')).toBe(100);
+    expect(getT5Thresh(1000000, 'comb')).toBe(100);
+  });
+
+  test('FR thresholds by area bracket', () => {
+    expect(getT5Thresh(10000, 'fr')).toBe(60);    // < 50K
+    expect(getT5Thresh(49999, 'fr')).toBe(60);    // < 50K
+    expect(getT5Thresh(50000, 'fr')).toBe(70);    // 50K–200K
+    expect(getT5Thresh(100000, 'fr')).toBe(70);   // 50K–200K
+    expect(getT5Thresh(199999, 'fr')).toBe(70);   // 50K–200K
+    expect(getT5Thresh(200000, 'fr')).toBe(75);   // 200K–500K
+    expect(getT5Thresh(500000, 'fr')).toBe(85);   // 500K–1M
+    expect(getT5Thresh(999999, 'fr')).toBe(85);   // 500K–1M
+    expect(getT5Thresh(1000000, 'fr')).toBe(90);  // >= 1M
+    expect(getT5Thresh(5000000, 'fr')).toBe(90);  // >= 1M
+  });
+
+  test('HNC thresholds by area bracket', () => {
+    expect(getT5Thresh(10000, 'hnc')).toBe(60);   // < 50K
+    expect(getT5Thresh(100000, 'hnc')).toBe(70);  // 50K–200K
+    expect(getT5Thresh(300000, 'hnc')).toBe(75);  // 200K–500K
+    expect(getT5Thresh(700000, 'hnc')).toBe(85);  // 500K–1M
+    expect(getT5Thresh(2000000, 'hnc')).toBe(90); // >= 1M
+  });
+
+  test('LNC thresholds by area bracket', () => {
+    expect(getT5Thresh(10000, 'lnc')).toBe(60);   // < 50K
+    expect(getT5Thresh(100000, 'lnc')).toBe(65);  // 50K–200K
+    expect(getT5Thresh(300000, 'lnc')).toBe(70);  // 200K–500K
+    expect(getT5Thresh(700000, 'lnc')).toBe(80);  // 500K–1M
+    expect(getT5Thresh(2000000, 'lnc')).toBe(90); // >= 1M
+  });
+
+  test('unknown construction types map to lnc', () => {
+    expect(getT5Thresh(100000, 'xyz')).toBe(65); // maps to lnc
+  });
+});
+
+// --------------- calcMFL() Table 5 condemnation ---------------
+describe('calcMFL() - Table 5 condemnation logic', () => {
+  function setupT5(area, occ, ct) {
+    S.buildings[0].area = String(area);
+    S.buildings[0].occupancy = occ;
+    S.buildings[0].construction = ct;
+    S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+  }
+
+  test('Office FR 100K sqft: bldg% 40 < threshold 70 → NOT condemned', () => {
+    setupT5(100000, 'Office', 'fr');
+    const r = calcMFL();
+    expect(r.condemned).toBe(false);
+    expect(r.t4BldgPct).toBe(40);
+    expect(r.t5Thresh).toBe(70);
+    expect(r.bP).toBe(40);
+    expect(r.pB).toBe(rLE(10000000 * 0.40));
+  });
+
+  test('Warehousing FR 100K sqft: bldg% 70 >= threshold 70 → condemned', () => {
+    setupT5(100000, 'Warehousing', 'fr');
+    const r = calcMFL();
+    expect(r.condemned).toBe(true);
+    expect(r.t4BldgPct).toBe(70);
+    expect(r.t5Thresh).toBe(70);
+    expect(r.bP).toBe(100);
+    expect(r.pB).toBe(rLE(10000000)); // full building loss
+  });
+
+  test('Warehousing FR small building (30K sqft): threshold drops to 60, 70 >= 60 → condemned', () => {
+    setupT5(30000, 'Warehousing', 'fr');
+    const r = calcMFL();
+    expect(r.t5Thresh).toBe(60);
+    expect(r.condemned).toBe(true);
+    expect(r.bP).toBe(100);
+  });
+
+  test('Warehousing FR large building (1M sqft): threshold rises to 90, 70 < 90 → NOT condemned', () => {
+    setupT5(1000000, 'Warehousing', 'fr');
+    const r = calcMFL();
+    expect(r.t5Thresh).toBe(90);
+    expect(r.condemned).toBe(false);
+    expect(r.bP).toBe(70);
+    expect(r.pB).toBe(rLE(10000000 * 0.70));
+  });
+
+  test('Hospital FR 100K sqft: bldg% 10 < threshold 70 → NOT condemned', () => {
+    setupT5(100000, 'Hospital/Medical', 'fr');
+    const r = calcMFL();
+    expect(r.condemned).toBe(false);
+    expect(r.t4BldgPct).toBe(10);
+    expect(r.bP).toBe(10);
+  });
+
+  test('Aircraft Hangar FR: bldg% 90, always condemned at any area', () => {
+    // At 100K sqft, threshold=70; 90>=70 → condemned
+    setupT5(100000, 'Aircraft Hangar', 'fr');
+    expect(calcMFL().condemned).toBe(true);
+    // At 1M sqft, threshold=90; 90>=90 → still condemned
+    setupT5(1000000, 'Aircraft Hangar', 'fr');
+    expect(calcMFL().condemned).toBe(true);
+  });
+
+  test('metric units: area converted to sqft for Table 5 lookup', () => {
+    S.units = 'metric';
+    // 9290 m² ≈ 100,000 sqft
+    setupT5(9290, 'Office', 'fr');
+    const r = calcMFL();
+    // 9290/0.0929 ≈ 100,000 sqft → threshold=70, Office FR b=40 < 70 → not condemned
+    expect(r.condemned).toBe(false);
+    expect(r.bP).toBe(40);
+  });
+
+  test('condemned building has effectiveBP=100 but t4BldgPct preserves original', () => {
+    setupT5(100000, 'Wood/Plastic Products', 'fr'); // fr.b=70, threshold=70 → condemned
+    const r = calcMFL();
+    expect(r.bP).toBe(100); // effective
+    expect(r.t4BldgPct).toBe(70); // raw Table 4 value preserved
+    expect(r.condemned).toBe(true);
+  });
+});
+
+// --------------- aplDmg() - APL damage overrides ---------------
+describe('aplDmg() - APL damage override system', () => {
+  test('returns base value when no override exists', () => {
+    expect(aplDmg('A', 'fire', 'b', 0.25)).toBe(0.25);
+    expect(aplDmg('B', 'water', 'e', 0.5)).toBe(0.5);
+  });
+
+  test('returns override value when set', () => {
+    S.aplDmgOverrides['A_fire_b'] = 0.50;
+    expect(aplDmg('A', 'fire', 'b', 0.25)).toBe(0.50);
+  });
+
+  test('clamps override to [0, 1]', () => {
+    S.aplDmgOverrides['A_fire_b'] = 1.5;
+    expect(aplDmg('A', 'fire', 'b', 0.25)).toBe(1);
+    S.aplDmgOverrides['A_fire_b'] = -0.5;
+    expect(aplDmg('A', 'fire', 'b', 0.25)).toBe(0);
+  });
+
+  test('override of 0 returns 0 (not fallback to base)', () => {
+    S.aplDmgOverrides['A_fire_b'] = 0;
+    expect(aplDmg('A', 'fire', 'b', 0.25)).toBe(0);
+  });
+
+  test('different scenario/zone/key combinations are independent', () => {
+    S.aplDmgOverrides['A_fire_b'] = 0.10;
+    S.aplDmgOverrides['A_fire_e'] = 0.20;
+    S.aplDmgOverrides['B_fire_b'] = 0.30;
+    expect(aplDmg('A', 'fire', 'b', 0.25)).toBe(0.10);
+    expect(aplDmg('A', 'fire', 'e', 1.0)).toBe(0.20);
+    expect(aplDmg('B', 'fire', 'b', 0.5)).toBe(0.30);
+    expect(aplDmg('A', 'water', 'b', 0.1)).toBe(0.1); // no override
+  });
+});
+
+// --------------- calcAPL() with aplDmg overrides ---------------
+describe('calcAPL() - damage overrides affect loss calculation', () => {
+  function setupBase() {
+    S.buildings[0].area = '100000';
+    S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+    S.isStorage = false; S.isSensitive = false; S.hazardClass = 'ordinary';
+  }
+
+  test('reducing fire building damage reduces APL pB', () => {
+    setupBase();
+    const baseline = calcAPL();
+    expect(baseline.sc).toBe('A');
+    // Override Scenario A fire building damage from 0.25 to 0.10
+    S.aplDmgOverrides['A_fire_b'] = 0.10;
+    const overridden = calcAPL();
+    expect(overridden.sc).toBe('A');
+    expect(overridden.pB).toBeLessThan(baseline.pB);
+    expect(overridden.pT).toBeLessThan(baseline.pT);
+  });
+
+  test('setting all damage overrides to 0 produces 0 loss', () => {
+    setupBase();
+    const apl = calcAPL();
+    expect(apl.sc).toBe('A');
+    // Zero out all damage for Scenario A
+    ['fire','water','smoke'].forEach(z => {
+      ['b','e','i'].forEach(k => {
+        S.aplDmgOverrides['A_'+z+'_'+k] = 0;
+      });
+    });
+    const zeroed = calcAPL();
+    expect(zeroed.pT).toBe(0);
+    expect(zeroed.pB).toBe(0);
+    expect(zeroed.pE).toBe(0);
+    expect(zeroed.pI).toBe(0);
+  });
+
+  test('overrides only affect the active scenario', () => {
+    setupBase();
+    // Set override for Scenario B (which won't be used)
+    S.aplDmgOverrides['B_fire_b'] = 0;
+    const apl = calcAPL();
+    expect(apl.sc).toBe('A'); // non-sensitive ordinary → A
+    // Should use normal A values, not B overrides
+    expect(apl.pT).toBeGreaterThan(0);
+  });
+});
+
+// --------------- STORAGE_OCCS ---------------
+describe('STORAGE_OCCS - storage occupancy classification', () => {
+  test('Warehousing is a storage occupancy', () => {
+    expect(STORAGE_OCCS.includes('Warehousing')).toBe(true);
+  });
+
+  test('Warehousing (Refrigerated) is a storage occupancy', () => {
+    expect(STORAGE_OCCS.includes('Warehousing (Refrigerated)')).toBe(true);
+  });
+
+  test('Big Box Retail is a storage occupancy', () => {
+    expect(STORAGE_OCCS.includes('Big Box Retail')).toBe(true);
+  });
+
+  test('Office is NOT a storage occupancy', () => {
+    expect(STORAGE_OCCS.includes('Office')).toBe(false);
+  });
+
+  test('Hotel/Residential/School is NOT a storage occupancy', () => {
+    expect(STORAGE_OCCS.includes('Hotel/Residential/School')).toBe(false);
+  });
+
+  test('STORAGE_OCCS has exactly 3 entries', () => {
+    expect(STORAGE_OCCS.length).toBe(3);
+  });
+});
+
+// --------------- New occupancy types coverage ---------------
+describe('New MFL_T occupancies - data integrity', () => {
+  const newOccs = [
+    'Hydroelectric Power', 'Machine Shop/Light Metal', 'Mineral Products',
+    'Beverage Processing', 'Retail (non Big Box)', 'Electronic/Electrical Mfg',
+    'Metal Smelting/Foundry', 'Big Box Retail', 'Box Mfg/Printing',
+    'Vehicle Manufacturing', 'Brewery/Distillery/Winery', 'Cotton Mill/Sugar Mill',
+    'Rubber Manufacturing', 'Warehousing (Refrigerated)', 'Aircraft Hangar',
+    'Pharma/Cosmetics/Drugs', 'Grain Elevator/Milling'
+  ];
+
+  newOccs.forEach(occ => {
+    test(`${occ} exists in MFL_T with all 4 construction types`, () => {
+      expect(MFL_T[occ]).toBeDefined();
+      expect(MFL_T[occ].fr).toBeDefined();
+      expect(MFL_T[occ].hnc).toBeDefined();
+      expect(MFL_T[occ].lnc).toBeDefined();
+      expect(MFL_T[occ].comb).toBeDefined();
+    });
+
+    test(`${occ} has valid damage percentages (0-100) and BI months`, () => {
+      ['fr','hnc','lnc','comb'].forEach(ct => {
+        const d = MFL_T[occ][ct];
+        expect(d.b).toBeGreaterThanOrEqual(0);
+        expect(d.b).toBeLessThanOrEqual(100);
+        expect(d.e).toBeGreaterThanOrEqual(0);
+        expect(d.e).toBeLessThanOrEqual(100);
+        expect(d.i).toBeGreaterThanOrEqual(0);
+        expect(d.i).toBeLessThanOrEqual(100);
+        expect(d.bi).toBeGreaterThan(0);
+      });
+    });
+  });
+
+  test('MFL_T has 26 total occupancy types', () => {
+    expect(Object.keys(MFL_T).length).toBe(26);
+  });
+});
+
+// --------------- calcMFL() with new occupancies ---------------
+describe('calcMFL() - selected new occupancy scenarios', () => {
+  function setupOcc(occ, ct, area = 100000) {
+    S.buildings[0].area = String(area);
+    S.buildings[0].occupancy = occ;
+    S.buildings[0].construction = ct;
+    S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+  }
+
+  test('Hydroelectric Power FR: very low building damage (5%)', () => {
+    setupOcc('Hydroelectric Power', 'fr');
+    const r = calcMFL();
+    expect(r.t4BldgPct).toBe(5);
+    expect(r.condemned).toBe(false); // 5 < 70
+    expect(r.pB).toBe(rLE(10000000 * 0.05));
+  });
+
+  test('Aircraft Hangar HNC: 100% across all categories', () => {
+    setupOcc('Aircraft Hangar', 'hnc');
+    const r = calcMFL();
+    expect(r.bP).toBe(100);
+    expect(r.eP).toBe(100);
+    expect(r.iP).toBe(100);
+    expect(r.pT).toBe(17000000); // total site PD
+  });
+
+  test('Semiconductor Mfg FR: low building (20%) but high BI (24 months)', () => {
+    setupOcc('Semiconductor Mfg', 'fr');
+    S.biYearly = '24000000'; // $2M/month
+    const r = calcMFL();
+    expect(r.t4BldgPct).toBe(20);
+    expect(r.condemned).toBe(false); // 20 < 70
+    expect(r.biM).toBe(24);
+    expect(r.bV).toBe(rLE(24000000 / 12 * 24)); // 48M
+  });
+
+  test('Mineral Products combustible: iP is 75 (not 100)', () => {
+    setupOcc('Mineral Products', 'comb');
+    const r = calcMFL();
+    expect(r.bP).toBe(100);
+    expect(r.eP).toBe(100);
+    expect(r.iP).toBe(75); // unique exception
+    expect(r.pI).toBe(rLE(2000000 * 0.75));
+  });
+
+  test('Grain Elevator FR: very high damage (90% bldg), condemned at 100K sqft', () => {
+    setupOcc('Grain Elevator/Milling', 'fr');
+    const r = calcMFL();
+    expect(r.t4BldgPct).toBe(90);
+    expect(r.t5Thresh).toBe(70);
+    expect(r.condemned).toBe(true);
+    expect(r.bP).toBe(100);
+  });
+
+  test('Big Box Retail is storage-relevant but has distinct Table 4 values', () => {
+    setupOcc('Big Box Retail', 'fr');
+    const r = calcMFL();
+    expect(r.t4BldgPct).toBe(50);
+    expect(r.eP).toBe(60);
+    expect(r.iP).toBe(60);
+  });
+});
+
+// --------------- Integration: Table 5 condemnation across area ranges ---------------
+describe('Integration: Table 5 condemnation varies by building area', () => {
+  function setupArea(area) {
+    S.buildings[0].area = String(area);
+    S.buildings[0].occupancy = 'Chemical Processing'; // FR b=60
+    S.buildings[0].construction = 'fr';
+    S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+  }
+
+  test('small building (20K sqft): threshold=60, Chemical FR 60 >= 60 → condemned', () => {
+    setupArea(20000);
+    const r = calcMFL();
+    expect(r.t5Thresh).toBe(60);
+    expect(r.condemned).toBe(true);
+    expect(r.bP).toBe(100);
+  });
+
+  test('medium building (100K sqft): threshold=70, Chemical FR 60 < 70 → NOT condemned', () => {
+    setupArea(100000);
+    const r = calcMFL();
+    expect(r.t5Thresh).toBe(70);
+    expect(r.condemned).toBe(false);
+    expect(r.bP).toBe(60);
+  });
+
+  test('large building (300K sqft): threshold=75, Chemical FR 60 < 75 → NOT condemned', () => {
+    setupArea(300000);
+    const r = calcMFL();
+    expect(r.t5Thresh).toBe(75);
+    expect(r.condemned).toBe(false);
+    expect(r.bP).toBe(60);
+  });
+});
+
+// --------------- calcPML() with aplDmg overrides in zone scaling ---------------
+describe('calcPML() - aplDmg overrides affect zone-based PML', () => {
+  function setupPMLZone() {
+    S.buildings[0].area = '100000';
+    S.buildings[0].occupancy = 'Warehousing';
+    S.buildings[0].construction = 'hnc';
+    S.totalBldg = '10000000'; S.totalEquip = '5000000'; S.totalInv = '2000000';
+    S.isStorage = false; S.isSensitive = false; S.hazardClass = 'ordinary';
+    S.sprinklerAdequate = 'adequate'; S.designPct = '100';
+    S.alarmsOk = true; S.designArea = '2000'; S.fdTime = 'prompt';
+    S.fdType = 'fullypaid'; S.multipleRisers = true; S.centralStation = true;
+  }
+
+  test('override reduces PML when using zone-based scaling', () => {
+    setupPMLZone();
+    const baseline = calcPML();
+    expect(baseline.eq).toBe(false);
+    expect(baseline.zones.length).toBe(3);
+
+    // Reduce fire building damage
+    S.aplDmgOverrides['A_fire_b'] = 0.10; // 0.25 → 0.10
+    const overridden = calcPML();
+    expect(overridden.zones[0].bPct).toBe(0.10);
+    expect(overridden.zones[0].bD).toBeLessThan(baseline.zones[0].bD);
   });
 });
