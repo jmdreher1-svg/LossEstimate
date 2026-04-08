@@ -203,7 +203,7 @@ const S={
   multipleRisers:false,centralStation:false,
   // PML fire wall (2-hour+ per item #5)
   pmlFW2hr:false,pmlFWArea:"",
-  pmlExpSep:false,pmlBldgHeight:"",
+  pmlExpSep:false,pmlBldgHeight:"",mflWallOpenGt25:false,
   // MFL
   fw4hr:false,fwArea:"",
   // High rise (deprecated — kept for saved-state compat, no longer used in calculations)
@@ -288,11 +288,17 @@ function gv(){
   return{a,tb,te,ti,by,bpsf:a>0?tb/a:0,epsf:a>0?te/a:0,ipsf:a>0?ti/a:0,pd:tb+te+ti};
 }
 
-function getSepReq(origC,expC,haz){
-  const ok=origC==="fr"?"fr":origC==="comb"?"comb":"nc",ek=expC==="fr"?"fr":expC==="comb"?"comb":"nc",hk=haz==="light"?"l":haz==="ordinary"?"o":"e";
-  const ftVal=MFL_SEP[ek]?.[ok]?.[hk]||100;
+function getSepReq(origC,expC,haz,opts){
+  // Table 3a Note 1: wall openings >25% → FR treated as NC, NC treated as Comb
+  let effOrigC=origC;
+  if(opts&&opts.wallOpenGt25){if(origC==="fr")effOrigC="hnc";else if(origC==="hnc"||origC==="lnc")effOrigC="comb";}
+  const ok=effOrigC==="fr"?"fr":effOrigC==="comb"?"comb":"nc",ek=expC==="fr"?"fr":expC==="comb"?"comb":"nc",hk=haz==="light"?"l":haz==="ordinary"?"o":"e";
+  let ftVal=MFL_SEP[ek]?.[ok]?.[hk]||100;
+  // Table 3a Note 2: non-FR origin >2 stories or >20ft → +10ft per story above 2
+  if(opts&&opts.origFloors>2&&origC!=="fr")ftVal+=10*(opts.origFloors-2);
   return fromFt(ftVal);
 }
+function sepOpts(){return{wallOpenGt25:S.mflWallOpenGt25,origFloors:pf(pb().floors)};}
 
 // TABLE 1B
 function countBold(){let c=0;if(S.defHP!=="none")c++;if(S.defESFR!=="none")c++;if(S.defOT!=="none")c++;if(S.defFC!=="none")c++;if(S.defFE)c++;if(S.defV!=="none")c++;if(S.defOE!=="none")c++;if(S.defOC!=="none")c++;return c}
@@ -354,9 +360,9 @@ function calcMFL(){
   if(hasFW){fwReduction=bldgValue(S.primaryIdx)*(1-mflA/a);}
 
   // Check adjacent buildings for separation
-  const exclB=[],inclB=[];
+  const exclB=[],inclB=[],so=sepOpts();
   S.buildings.forEach((b,i)=>{if(i===S.primaryIdx)return;
-    const req=getSepReq(primaryConst(),b.construction||primaryConst(),S.hazardClass);
+    const req=getSepReq(primaryConst(),b.construction||primaryConst(),S.hazardClass,so);
     const act=pf(b.separation);const bv=bldgValue(i);
     const info={idx:i,name:b.name||("Building "+(i+1)),area:pf(b.area),req,act,value:bv,construction:b.construction};
     if(act>=req&&act>0)exclB.push(info);else inclB.push(info);
@@ -407,7 +413,7 @@ function pmlExpSepInfo(){
   let nearest=null;
   S.buildings.forEach((b,i)=>{if(i===S.primaryIdx)return;const d=pf(b.separation);if(d>0&&(!nearest||d<nearest.dist))nearest={idx:i,dist:d,construction:b.construction||primaryConst(),name:b.name||("Building "+(i+1))};});
   if(!nearest)return{active:false,reason:"no adjacent buildings with separation distances"};
-  const t3a=getSepReq(primaryConst(),nearest.construction,S.hazardClass);
+  const t3a=getSepReq(primaryConst(),nearest.construction,S.hazardClass,sepOpts());
   const reqDist=Math.max(h*1.5,t3a/2);
   const ok=nearest.dist>=reqDist;
   return{active:ok,nearest,reqDist,t3aDist:t3a,heightReq:h*1.5,halfT3a:t3a/2,actualDist:nearest.dist,reason:ok?null:"separation "+nearest.dist+" "+dU()+" < required "+Math.ceil(reqDist)+" "+dU()};
@@ -695,7 +701,11 @@ function genN(){
 
   if(mfl.exclB.length>0||mfl.inclB.length>0){
     m+=`\nBuilding Separation Analysis (Table 3a):\n`;
-    m+=`The total site values include all buildings. Buildings with adequate separation per Table 3a are subtracted from the MFL since the fire is not expected to spread to those structures.\n\n`;
+    m+=`The total site values include all buildings. Buildings with adequate separation per Table 3a are subtracted from the MFL since the fire is not expected to spread to those structures.\n`;
+    if(S.mflWallOpenGt25)m+=`\nNote: Wall openings on the primary building exceed 25% of facing wall area (Table 3a Note 1). For separation purposes, ${primaryConst()==="fr"?"Fire Resistive construction is treated as Noncombustible":(primaryConst()==="hnc"||primaryConst()==="lnc")?"Noncombustible construction is treated as Combustible":"construction classification is unchanged"}.\n`;
+    const origFloors=pf(pb().floors);
+    if(origFloors>2&&primaryConst()!=="fr")m+=`\nNote: Primary building is non-Fire Resistive with ${origFloors} stories (Table 3a Note 2). Required separation increased by ${fromFt(10*(origFloors-2))} ${dU()} (+${fromFt(10)} ${dU()} per story above 2).\n`;
+    m+=`\n`;
     mfl.exclB.forEach(b=>{m+=`  ${b.name}: ${fN(b.act)} ${dU()} actual vs ${b.req} ${dU()} required. Adequate separation, ${fmtF(b.value)} subtracted from MFL.\n`;});
     mfl.inclB.forEach(b=>{m+=`  ${b.name}: ${pf(b.act)>0?fN(b.act)+" "+dU()+" actual":"separation not specified"} vs ${b.req} ${dU()} required. Inadequate separation, ${fmtF(b.value)} remains in MFL.\n`;});
   }
@@ -946,7 +956,7 @@ function r4(){
   const mfl=calcMFL(),v=gv();
   let sepHtml='';
   S.buildings.forEach((b,i)=>{if(i===S.primaryIdx)return;
-    const req=getSepReq(primaryConst(),b.construction||primaryConst(),S.hazardClass),act=pf(b.separation),ok=act>=req&&act>0;
+    const req=getSepReq(primaryConst(),b.construction||primaryConst(),S.hazardClass,sepOpts()),act=pf(b.separation),ok=act>=req&&act>0;
     sepHtml+=`<div style="display:grid;grid-template-columns:1.3fr .7fr .7fr .7fr .8fr;gap:6px;align-items:end;margin-bottom:4px">
     <div class="fd" style="margin:0"><input disabled value="${esc(b.name||'Building '+(i+1))}" style="opacity:.7"></div>
     <div class="fd" style="margin:0"><input disabled value="${fN(pf(b.area))}" style="opacity:.7"></div>
@@ -965,6 +975,9 @@ function r4(){
   </div>
   ${S.buildings.length>1?`<div class="cd"><h3 class="ct">Building Separation (Table 3a)</h3>
   <div class="note">Enter the separation distance from the primary building to each adjacent building. Buildings meeting the minimum distance per Table 3a are excluded from the MFL. You can override the auto-distributed value if needed.</div>
+  <div class="tgr" style="margin-bottom:8px">${tog("Wall openings >25% on primary building","mflWallOpenGt25")}</div>
+  ${S.mflWallOpenGt25?`<div class="note"><strong>Table 3a Note 1:</strong> Openings in the facing wall of the building of fire origination exceed 25% of wall area. FR is treated as NC and NC as Combustible for separation purposes.</div>`:''}
+  ${pf(pb().floors)>2&&primaryConst()!=="fr"?`<div class="note"><strong>Table 3a Note 2:</strong> Primary building is non-FR with ${pf(pb().floors)} stories (>2). Required separation increased by ${fromFt(10*(pf(pb().floors)-2))} ${dU()} (+${fromFt(10)} ${dU()} per story above 2).</div>`:''}
   <div style="display:grid;grid-template-columns:1.3fr .7fr .7fr .7fr .8fr;gap:6px;margin-bottom:4px;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.4px"><div>Building</div><div>Area</div><div>Sep. (${dU()})</div><div>Value</div><div>Required</div></div>
   ${sepHtml}</div>`:``}
   <div class="cd"><div class="ifx"><h3 class="ct" style="margin:0">MFL Results</h3><span class="bdg bdg-d">${mfl.hasFW?(mfl.mflA/v.a*100).toFixed(0)+"% of primary | ":""}<span title="Table 4 blended damage percentage of total site PD">${mfl.sitePD>0?Math.round(mfl.pT/mfl.sitePD*100):0}% of Site PD (Table 4)</span></span></div>

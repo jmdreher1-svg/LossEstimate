@@ -60,7 +60,7 @@ function resetS() {
     hasCombConst:false,
     multipleRisers:false, centralStation:false,
     pmlFW2hr:false, pmlFWArea:"",
-    pmlExpSep:false, pmlBldgHeight:"",
+    pmlExpSep:false, pmlBldgHeight:"", mflWallOpenGt25:false,
     fw4hr:false, fwArea:"",
     isHighRise:false, stories:"", hrFireFloors:"1", topFloorBelowFD:true, extSpreadPossible:false,
     extType:"none", floorToWindow:"", windowHeight:"",
@@ -117,11 +117,15 @@ function gv(){
   return{a,tb,te,ti,by,bpsf:a>0?tb/a:0,epsf:a>0?te/a:0,ipsf:a>0?ti/a:0,pd:tb+te+ti};
 }
 
-function getSepReq(origC,expC,haz){
-  const ok=origC==="fr"?"fr":origC==="comb"?"comb":"nc",ek=expC==="fr"?"fr":expC==="comb"?"comb":"nc",hk=haz==="light"?"l":haz==="ordinary"?"o":"e";
-  const ftVal=MFL_SEP[ek]?.[ok]?.[hk]||100;
+function getSepReq(origC,expC,haz,opts){
+  let effOrigC=origC;
+  if(opts&&opts.wallOpenGt25){if(origC==="fr")effOrigC="hnc";else if(origC==="hnc"||origC==="lnc")effOrigC="comb";}
+  const ok=effOrigC==="fr"?"fr":effOrigC==="comb"?"comb":"nc",ek=expC==="fr"?"fr":expC==="comb"?"comb":"nc",hk=haz==="light"?"l":haz==="ordinary"?"o":"e";
+  let ftVal=MFL_SEP[ek]?.[ok]?.[hk]||100;
+  if(opts&&opts.origFloors>2&&origC!=="fr")ftVal+=10*(opts.origFloors-2);
   return fromFt(ftVal);
 }
+function sepOpts(){return{wallOpenGt25:S.mflWallOpenGt25,origFloors:pf(pb().floors)};}
 
 // Table 1B
 function countBold(){let c=0;if(S.defHP!=="none")c++;if(S.defESFR!=="none")c++;if(S.defOT!=="none")c++;if(S.defFC!=="none")c++;if(S.defFE)c++;if(S.defV!=="none")c++;if(S.defOE!=="none")c++;if(S.defOC!=="none")c++;return c}
@@ -178,9 +182,9 @@ function calcMFL(){
   const sitePD=siteTb+siteTe+siteTi;
   let fwReduction=0;
   if(hasFW){fwReduction=bldgValue(S.primaryIdx)*(1-mflA/a);}
-  const exclB=[],inclB=[];
+  const exclB=[],inclB=[],so=sepOpts();
   S.buildings.forEach((b,i)=>{if(i===S.primaryIdx)return;
-    const req=getSepReq(primaryConst(),b.construction||primaryConst(),S.hazardClass);
+    const req=getSepReq(primaryConst(),b.construction||primaryConst(),S.hazardClass,so);
     const act=pf(b.separation);const bv=bldgValue(i);
     const info={idx:i,name:b.name||("Building "+(i+1)),area:pf(b.area),req,act,value:bv,construction:b.construction};
     if(act>=req&&act>0)exclB.push(info);else inclB.push(info);
@@ -238,7 +242,7 @@ function pmlExpSepInfo(){
   let nearest=null;
   S.buildings.forEach((b,i)=>{if(i===S.primaryIdx)return;const d=pf(b.separation);if(d>0&&(!nearest||d<nearest.dist))nearest={idx:i,dist:d,construction:b.construction||primaryConst(),name:b.name||("Building "+(i+1))};});
   if(!nearest)return{active:false,reason:"no adjacent buildings with separation distances"};
-  const t3a=getSepReq(primaryConst(),nearest.construction,S.hazardClass);
+  const t3a=getSepReq(primaryConst(),nearest.construction,S.hazardClass,sepOpts());
   const reqDist=Math.max(h*1.5,t3a/2);
   const ok=nearest.dist>=reqDist;
   return{active:ok,nearest,reqDist,t3aDist:t3a,heightReq:h*1.5,halfT3a:t3a/2,actualDist:nearest.dist,reason:ok?null:"separation "+nearest.dist+" "+dU()+" < required "+Math.ceil(reqDist)+" "+dU()};
@@ -570,6 +574,127 @@ describe('getSepReq() - separation requirement lookup', () => {
   });
   test('returns 100 as default for unknown inputs', () => {
     expect(getSepReq('unknown', 'unknown', 'unknown')).toBe(100);
+  });
+});
+
+// --------------- getSepReq() Table 3a Notes ---------------
+describe('getSepReq() - Table 3a Note 1: wall openings >25%', () => {
+  test('FR origin treated as NC when wall openings >25%', () => {
+    // Without adjustment: FR-FR-ordinary = MFL_SEP.fr.fr.o = 40
+    expect(getSepReq('fr', 'fr', 'ordinary')).toBe(40);
+    // With wall openings: FR→NC, so MFL_SEP[fr][nc][o] = 50
+    expect(getSepReq('fr', 'fr', 'ordinary', {wallOpenGt25:true})).toBe(50);
+  });
+  test('HNC origin treated as Combustible when wall openings >25%', () => {
+    // Without: MFL_SEP[fr][nc][l] = 40
+    expect(getSepReq('hnc', 'fr', 'light')).toBe(40);
+    // With: HNC→comb, so MFL_SEP[fr][comb][l] = 50
+    expect(getSepReq('hnc', 'fr', 'light', {wallOpenGt25:true})).toBe(50);
+  });
+  test('LNC origin treated as Combustible when wall openings >25%', () => {
+    // Without: MFL_SEP[nc][nc][o] = 80
+    expect(getSepReq('lnc', 'lnc', 'ordinary')).toBe(80);
+    // With: LNC→comb, so MFL_SEP[nc][comb][o] = 100
+    expect(getSepReq('lnc', 'lnc', 'ordinary', {wallOpenGt25:true})).toBe(100);
+  });
+  test('Combustible origin unchanged by wall openings flag', () => {
+    expect(getSepReq('comb', 'comb', 'extra')).toBe(200);
+    expect(getSepReq('comb', 'comb', 'extra', {wallOpenGt25:true})).toBe(200);
+  });
+  test('wall openings with extra hazard shows larger increase', () => {
+    // FR-NC-extra without: MFL_SEP[nc][fr][e] = 90
+    expect(getSepReq('fr', 'hnc', 'extra')).toBe(90);
+    // With: FR→NC, MFL_SEP[nc][nc][e] = 100
+    expect(getSepReq('fr', 'hnc', 'extra', {wallOpenGt25:true})).toBe(100);
+  });
+  test('no opts parameter preserves original behavior', () => {
+    expect(getSepReq('fr', 'fr', 'ordinary')).toBe(40);
+    expect(getSepReq('fr', 'fr', 'ordinary', null)).toBe(40);
+    expect(getSepReq('fr', 'fr', 'ordinary', {})).toBe(40);
+  });
+});
+
+describe('getSepReq() - Table 3a Note 2: multi-story height adjustment', () => {
+  test('non-FR origin >2 stories adds 10ft per story above 2', () => {
+    // HNC exposed to FR, ordinary: MFL_SEP[fr][nc][o] = 50, 4 stories → +20ft = 70
+    expect(getSepReq('hnc', 'fr', 'ordinary', {origFloors:4})).toBe(70);
+  });
+  test('3 stories adds 10ft', () => {
+    // comb-comb-light base = 130, 3 stories → +10ft = 140
+    expect(getSepReq('comb', 'comb', 'light', {origFloors:3})).toBe(140);
+  });
+  test('2 stories does not add extra separation', () => {
+    // MFL_SEP[fr][nc][o] = 50
+    expect(getSepReq('hnc', 'fr', 'ordinary', {origFloors:2})).toBe(50);
+  });
+  test('1 story does not add extra separation', () => {
+    expect(getSepReq('hnc', 'fr', 'ordinary', {origFloors:1})).toBe(50);
+  });
+  test('FR origin is exempt from height adjustment even with >2 stories', () => {
+    // FR-FR-ordinary = 40 regardless of floors
+    expect(getSepReq('fr', 'fr', 'ordinary', {origFloors:5})).toBe(40);
+  });
+  test('combined: wall openings + multi-story', () => {
+    // FR origin, wall openings → treated as NC for lookup; but FR is exempt from height adj
+    // MFL_SEP[fr][nc][o] = 50, no height adjustment
+    expect(getSepReq('fr', 'fr', 'ordinary', {wallOpenGt25:true, origFloors:4})).toBe(50);
+    // HNC origin, wall openings → treated as Comb for lookup; 3 stories → +10ft
+    // MFL_SEP[fr][comb][o] = 80, + 10 = 90
+    expect(getSepReq('hnc', 'fr', 'ordinary', {wallOpenGt25:true, origFloors:3})).toBe(90);
+  });
+});
+
+describe('calcMFL() - Table 3a Note adjustments in separation', () => {
+  test('wall openings >25% increases required separation and can change adequacy', () => {
+    S.buildings = [
+      {name:'Primary', area:'100000', construction:'fr', occupancy:'Warehousing', value:'', separation:'', floors:''},
+      {name:'Secondary', area:'50000', construction:'fr', occupancy:'Warehousing', value:'', separation:'45', floors:''},
+    ];
+    S.primaryIdx = 0;
+    S.totalBldg = '3000000'; S.totalEquip = '1500000'; S.totalInv = '1500000';
+    S.hazardClass = 'ordinary';
+    S.mflWallOpenGt25 = false;
+    // Base: FR-FR-ordinary = 40ft. 45ft >= 40ft → excluded
+    let mfl = calcMFL();
+    expect(mfl.exclB.length).toBe(1);
+    // With wall openings: FR→NC, MFL_SEP[fr][nc][o] = 50ft. 45ft < 50ft → included
+    S.mflWallOpenGt25 = true;
+    mfl = calcMFL();
+    expect(mfl.exclB.length).toBe(0);
+    expect(mfl.inclB.length).toBe(1);
+  });
+
+  test('multi-story non-FR increases required separation', () => {
+    S.buildings = [
+      {name:'Primary', area:'100000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'', floors:'4'},
+      {name:'Secondary', area:'50000', construction:'hnc', occupancy:'Warehousing', value:'', separation:'90', floors:''},
+    ];
+    S.primaryIdx = 0;
+    S.totalBldg = '3000000'; S.totalEquip = '1500000'; S.totalInv = '1500000';
+    S.hazardClass = 'ordinary';
+    S.mflWallOpenGt25 = false;
+    // Base: HNC(nc)-HNC(nc)-ordinary = 80ft. 4 stories → +20ft = 100ft. 90ft < 100ft → included
+    let mfl = calcMFL();
+    expect(mfl.inclB.length).toBe(1);
+    expect(mfl.exclB.length).toBe(0);
+    // With only 2 stories: base = 80ft. 90ft >= 80ft → excluded
+    S.buildings[0].floors = '2';
+    mfl = calcMFL();
+    expect(mfl.exclB.length).toBe(1);
+    expect(mfl.inclB.length).toBe(0);
+  });
+
+  test('FR origin exempt from multi-story adjustment', () => {
+    S.buildings = [
+      {name:'Primary', area:'100000', construction:'fr', occupancy:'Warehousing', value:'', separation:'', floors:'5'},
+      {name:'Secondary', area:'50000', construction:'fr', occupancy:'Warehousing', value:'', separation:'45', floors:''},
+    ];
+    S.primaryIdx = 0;
+    S.totalBldg = '3000000'; S.totalEquip = '1500000'; S.totalInv = '1500000';
+    S.hazardClass = 'ordinary';
+    // FR-FR-ordinary = 40ft. FR is exempt from height adjustment. 45ft >= 40ft → excluded
+    let mfl = calcMFL();
+    expect(mfl.exclB.length).toBe(1);
   });
 });
 
